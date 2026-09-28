@@ -8,7 +8,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as argon2 from 'argon2';
-import { PrismaClient } from '../src/generated/prisma/client.ts';
+import { Prisma, PrismaClient } from '../src/generated/prisma/client.ts';
 import { readingTimeMinutes, slugify } from '../src/common/utils/text.ts';
 import { seedPosts } from './seed-data/posts.ts';
 
@@ -41,145 +41,125 @@ async function seedProfile() {
       id: 1,
       name: 'Jonathan Graniero',
       headline:
-        'Software engineer — backend systems, cloud infrastructure and the occasional frontend.',
-      bio: `I'm a software engineer who likes building reliable systems and the tooling around them.
+        'Software engineer building Kubernetes operators, AWS infrastructure and the backend services around them.',
+      bio: `I'm a software engineer who works where application code meets infrastructure: Kubernetes controllers, AWS, and the backend services that tie them together.
 
-Most of my work sits where application code meets infrastructure: APIs, Kubernetes controllers, autoscaling, auth services and the pipelines that ship them.
+Lately that means building [kflare](/blog/building-kflare-kubernetes-operator-for-cloudflare), a Kubernetes operator for Cloudflare, and contributing to [AWS Controllers for Kubernetes](/blog/adding-a-database-resource-to-the-ack-glue-controller) (ACK), where I'm adding Data Catalog support to the Glue controller.
 
-*This bio is placeholder copy — edit it from the admin panel.*`,
+I write mostly Go and Python, and TypeScript when there's an API or UI to build. This site is where I write up what I learn along the way.`,
       location: 'Remote',
-      github: 'https://github.com/',
-      linkedin: 'https://www.linkedin.com/',
-      email: 'hello@example.com',
+      github: 'https://github.com/JonathanGraniero',
+      linkedin: 'https://www.linkedin.com/in/jonathangraniero/',
+      email: null,
       resumeUrl: null,
     },
   });
   console.log('✓ profile');
 }
 
+/**
+ * Work history is intentionally empty until real entries are provided; the
+ * About page hides the section when there are none.
+ */
+const experience: Prisma.ExperienceCreateManyInput[] = [];
+
+/** Grouped on the About page. `level` is stored but not displayed. */
+const skills: Prisma.SkillCreateManyInput[] = [
+  { name: 'Go', category: 'LANGUAGE', level: 3 },
+  { name: 'Python', category: 'LANGUAGE', level: 3 },
+  { name: 'TypeScript', category: 'LANGUAGE', level: 3 },
+  { name: 'SQL', category: 'LANGUAGE', level: 3 },
+  { name: 'React', category: 'FRONTEND', level: 3 },
+  { name: 'NestJS', category: 'BACKEND', level: 3 },
+  { name: 'FastAPI', category: 'BACKEND', level: 3 },
+  { name: 'Node.js', category: 'BACKEND', level: 3 },
+  { name: 'PostgreSQL', category: 'DATA', level: 3 },
+  { name: 'AWS Glue', category: 'DATA', level: 3 },
+  { name: 'Kubernetes', category: 'INFRA', level: 3 },
+  { name: 'controller-runtime & kubebuilder', category: 'INFRA', level: 3 },
+  { name: 'AWS', category: 'INFRA', level: 3 },
+  { name: 'Terraform', category: 'INFRA', level: 3 },
+  { name: 'Pulumi', category: 'INFRA', level: 3 },
+  { name: 'Docker', category: 'INFRA', level: 3 },
+  { name: 'Helm', category: 'TOOLING', level: 3 },
+  { name: 'kind', category: 'TOOLING', level: 3 },
+  { name: 'GitHub Actions', category: 'TOOLING', level: 3 },
+];
+
+const projects: Prisma.ProjectCreateManyInput[] = [
+  {
+    name: 'kflare',
+    description:
+      'Kubernetes operator for Cloudflare: manage accounts, zones and DNS records as custom resources, with adoption of existing records, drift detection and GitOps-friendly workflows.',
+    repoUrl: 'https://github.com/JonathanGraniero/kflare',
+    url: null,
+    tech: ['Go', 'Kubernetes', 'controller-runtime', 'Cloudflare API'],
+    featured: true,
+    sortOrder: 0,
+  },
+  {
+    name: 'ACK Glue controller: Database resource',
+    description:
+      'Open-source contribution to AWS Controllers for Kubernetes, adding a Glue Data Catalog Database resource with tag syncing and e2e tests.',
+    url: 'https://github.com/aws-controllers-k8s/glue-controller/pull/16',
+    repoUrl: 'https://github.com/JonathanGraniero/glue-controller',
+    tech: ['Go', 'Kubernetes', 'AWS Glue', 'ACK'],
+    featured: true,
+    sortOrder: 1,
+  },
+  {
+    name: 'This site',
+    description:
+      'Self-hosted blog and portfolio: a React client and NestJS API sharing a typed contract, with Postgres full-text search and a markdown admin editor.',
+    url: null,
+    repoUrl: null,
+    tech: ['React', 'NestJS', 'Prisma', 'PostgreSQL'],
+    featured: true,
+    sortOrder: 2,
+  },
+  {
+    name: 'SageMaker LLM deployment',
+    description:
+      'Pulumi program in Python that deploys a Hugging Face language model to an Amazon SageMaker endpoint, with IAM roles and CloudWatch alarms.',
+    url: null,
+    repoUrl: 'https://github.com/jgraniero52/ai-playground',
+    tech: ['Python', 'Pulumi', 'AWS SageMaker', 'Hugging Face'],
+    featured: false,
+    sortOrder: 3,
+  },
+  {
+    name: 'find-book',
+    description:
+      'Go command-line tool that searches for books and series by title or ISBN, and generates purchase links for major retailers.',
+    url: null,
+    repoUrl: 'https://github.com/jgraniero52/find-book',
+    tech: ['Go', 'CLI', 'REST APIs'],
+    featured: false,
+    sortOrder: 4,
+  },
+  {
+    name: 'Krugerrand Discord bot',
+    description:
+      'Discord bot with slash commands for live gold and Krugerrand prices, runnable as a long-lived bot or as an AWS Lambda webhook handler.',
+    url: null,
+    repoUrl: null,
+    tech: ['Python', 'Discord API', 'AWS Lambda'],
+    featured: false,
+    sortOrder: 5,
+  },
+];
+
 async function seedCareer() {
-  if ((await prisma.experience.count()) === 0) {
-    await prisma.experience.createMany({
-      data: [
-        {
-          company: 'Placeholder Cloud Co.',
-          role: 'Senior Software Engineer',
-          location: 'Remote',
-          startDate: new Date('2024-03-01'),
-          endDate: null,
-          summary: 'Platform team building internal developer tooling on Kubernetes.',
-          highlights: [
-            'Designed and shipped custom Kubernetes controllers to automate service onboarding',
-            'Introduced queue-based autoscaling, cutting idle compute spend significantly',
-            'Mentored engineers on Go, controller-runtime and operational best practices',
-          ],
-          tech: ['Go', 'Kubernetes', 'AWS', 'Terraform', 'PostgreSQL'],
-          sortOrder: 0,
-        },
-        {
-          company: 'Example Data Inc.',
-          role: 'Software Engineer',
-          location: 'Hybrid',
-          startDate: new Date('2021-06-01'),
-          endDate: new Date('2024-02-28'),
-          summary: 'Backend engineer on the data platform and customer-facing APIs.',
-          highlights: [
-            'Built a centralised auth service used by every product surface',
-            'Owned ETL jobs feeding the company data lake',
-            'Led a migration from a monolith to independently deployable services',
-          ],
-          tech: ['TypeScript', 'Node.js', 'NestJS', 'Python', 'Spark', 'Docker'],
-          sortOrder: 1,
-        },
-        {
-          company: 'Startup Studio',
-          role: 'Full-stack Developer',
-          location: 'On-site',
-          startDate: new Date('2019-01-01'),
-          endDate: new Date('2021-05-31'),
-          summary: 'Early engineer shipping MVPs for multiple product bets.',
-          highlights: [
-            'Delivered React front ends and REST APIs for four products',
-            'Set up CI/CD and infrastructure-as-code from scratch',
-          ],
-          tech: ['React', 'JavaScript', 'Express', 'MongoDB', 'GitHub Actions'],
-          sortOrder: 2,
-        },
-      ],
-    });
+  if (experience.length && (await prisma.experience.count()) === 0) {
+    await prisma.experience.createMany({ data: experience });
     console.log('✓ experience');
   }
-
   if ((await prisma.skill.count()) === 0) {
-    await prisma.skill.createMany({
-      data: [
-        { name: 'TypeScript', category: 'LANGUAGE', level: 5 },
-        { name: 'Go', category: 'LANGUAGE', level: 4 },
-        { name: 'Python', category: 'LANGUAGE', level: 4 },
-        { name: 'SQL', category: 'LANGUAGE', level: 4 },
-        { name: 'React', category: 'FRONTEND', level: 4 },
-        { name: 'Tailwind CSS', category: 'FRONTEND', level: 3 },
-        { name: 'NestJS', category: 'BACKEND', level: 5 },
-        { name: 'Node.js', category: 'BACKEND', level: 5 },
-        { name: 'REST & OpenAPI', category: 'BACKEND', level: 5 },
-        { name: 'PostgreSQL', category: 'DATA', level: 4 },
-        { name: 'Redis', category: 'DATA', level: 3 },
-        { name: 'Kubernetes', category: 'INFRA', level: 5 },
-        { name: 'AWS', category: 'INFRA', level: 4 },
-        { name: 'Terraform', category: 'INFRA', level: 4 },
-        { name: 'Docker', category: 'INFRA', level: 5 },
-        { name: 'GitHub Actions', category: 'TOOLING', level: 4 },
-        { name: 'Prometheus & Grafana', category: 'TOOLING', level: 3 },
-      ],
-    });
+    await prisma.skill.createMany({ data: skills });
     console.log('✓ skills');
   }
-
   if ((await prisma.project.count()) === 0) {
-    await prisma.project.createMany({
-      data: [
-        {
-          name: 'This site',
-          description:
-            'Self-hosted blog and portfolio: a React client and NestJS API sharing a typed contract, backed by Postgres full-text search.',
-          repoUrl: 'https://github.com/',
-          url: null,
-          tech: ['React', 'NestJS', 'Prisma', 'PostgreSQL'],
-          featured: true,
-          sortOrder: 0,
-        },
-        {
-          name: 'Queue-aware autoscaler',
-          description:
-            'Kubernetes controller that scales workers on queue backlog rather than CPU, including scale-to-zero.',
-          repoUrl: 'https://github.com/',
-          url: null,
-          tech: ['Go', 'Kubernetes', 'KEDA'],
-          featured: true,
-          sortOrder: 1,
-        },
-        {
-          name: 'Auth service',
-          description:
-            'Standalone OAuth2/OIDC-style auth service with token rotation and audit logging.',
-          repoUrl: 'https://github.com/',
-          url: null,
-          tech: ['TypeScript', 'NestJS', 'Redis'],
-          featured: true,
-          sortOrder: 2,
-        },
-        {
-          name: 'Discord bot',
-          description:
-            'Community bot with slash commands, scheduled jobs and a small plugin system.',
-          repoUrl: 'https://github.com/',
-          url: null,
-          tech: ['TypeScript', 'discord.js'],
-          featured: false,
-          sortOrder: 3,
-        },
-      ],
-    });
+    await prisma.project.createMany({ data: projects });
     console.log('✓ projects');
   }
 }

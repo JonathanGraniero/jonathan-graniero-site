@@ -28,23 +28,6 @@ function groupSkills(skills: Skill[]) {
   return [...groups];
 }
 
-function SkillLevel({ level }: { level: number }) {
-  return (
-    <span className="flex gap-0.5" role="img" aria-label={`${level} out of 5`}>
-      {Array.from({ length: 5 }, (_, i) => (
-        <span
-          key={i}
-          className={
-            i < level
-              ? 'size-1.5 rounded-full bg-accent-500'
-              : 'size-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700'
-          }
-        />
-      ))}
-    </span>
-  );
-}
-
 export function AboutPage() {
   const profile = useProfile();
   const experience = useQuery(queries.experience());
@@ -127,49 +110,52 @@ export function AboutPage() {
         </aside>
       </div>
 
-      <section className="mt-20" aria-labelledby="experience">
-        <SectionHeading>
-          <span id="experience">Experience</span>
-        </SectionHeading>
-        {experience.isPending ? (
-          <Skeleton className="h-48" />
-        ) : experience.isError ? (
-          <ErrorState error={experience.error} />
-        ) : (
-          <ol className="relative space-y-10 border-l border-zinc-200 pl-8 dark:border-zinc-800">
-            {experience.data.map((job) => (
-              <li key={job.id} className="relative">
-                <span
-                  aria-hidden
-                  className={`absolute -left-[37px] top-1.5 size-3 rounded-full ring-4 ring-white dark:ring-zinc-950 ${job.endDate ? 'bg-zinc-300 dark:bg-zinc-600' : 'bg-accent-500'}`}
-                />
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">
-                    {job.role} <span className="font-normal text-zinc-500">· {job.company}</span>
-                  </h3>
-                  <p className="font-mono text-xs text-zinc-500">
-                    {formatRange(job.startDate, job.endDate)}
-                  </p>
-                </div>
-                {job.location && <p className="text-sm text-zinc-500">{job.location}</p>}
-                <p className="mt-2 text-zinc-600 dark:text-zinc-400">{job.summary}</p>
-                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-zinc-600 marker:text-accent-500 dark:text-zinc-400">
-                  {job.highlights.map((h) => (
-                    <li key={h}>{h}</li>
-                  ))}
-                </ul>
-                <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Technologies">
-                  {job.tech.map((t) => (
-                    <li key={t}>
-                      <Badge>{t}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      {/* Hidden until there's work history to show. */}
+      {!(experience.isSuccess && experience.data.length === 0) && (
+        <section className="mt-20" aria-labelledby="experience">
+          <SectionHeading>
+            <span id="experience">Experience</span>
+          </SectionHeading>
+          {experience.isPending ? (
+            <Skeleton className="h-48" />
+          ) : experience.isError ? (
+            <ErrorState error={experience.error} />
+          ) : (
+            <ol className="relative space-y-10 border-l border-zinc-200 pl-8 dark:border-zinc-800">
+              {experience.data.map((job) => (
+                <li key={job.id} className="relative">
+                  <span
+                    aria-hidden
+                    className={`absolute -left-[37px] top-1.5 size-3 rounded-full ring-4 ring-white dark:ring-zinc-950 ${job.endDate ? 'bg-zinc-300 dark:bg-zinc-600' : 'bg-accent-500'}`}
+                  />
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">
+                      {job.role} <span className="font-normal text-zinc-500">· {job.company}</span>
+                    </h3>
+                    <p className="font-mono text-xs text-zinc-500">
+                      {formatRange(job.startDate, job.endDate)}
+                    </p>
+                  </div>
+                  {job.location && <p className="text-sm text-zinc-500">{job.location}</p>}
+                  <p className="mt-2 text-zinc-600 dark:text-zinc-400">{job.summary}</p>
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-zinc-600 marker:text-accent-500 dark:text-zinc-400">
+                    {job.highlights.map((h) => (
+                      <li key={h}>{h}</li>
+                    ))}
+                  </ul>
+                  <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Technologies">
+                    {job.tech.map((t) => (
+                      <li key={t}>
+                        <Badge>{t}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      )}
 
       <section className="mt-20" aria-labelledby="skills">
         <SectionHeading>
@@ -191,9 +177,8 @@ export function AboutPage() {
                 </h3>
                 <ul className="mt-3 space-y-2">
                   {items.map((s) => (
-                    <li key={s.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-zinc-800 dark:text-zinc-200">{s.name}</span>
-                      <SkillLevel level={s.level} />
+                    <li key={s.id} className="text-sm text-zinc-800 dark:text-zinc-200">
+                      {s.name}
                     </li>
                   ))}
                 </ul>

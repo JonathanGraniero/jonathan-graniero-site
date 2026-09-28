@@ -31,7 +31,7 @@ export function ProjectCard({ project, compact = false }: { project: Project; co
               rel="noopener noreferrer"
               className="text-accent-700 hover:underline dark:text-accent-400"
             >
-              Live site ↗
+              {/\/pull\/\d+/.test(project.url) ? 'Pull request ↗' : 'Live site ↗'}
             </a>
           )}
           {project.repoUrl && (
