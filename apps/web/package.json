@@ -1,0 +1,50 @@
+{
+  "name": "@site/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "React front end for the personal site.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.1.1",
+    "msw": "^2.15.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@hookform/resolvers": "^5.9.1",
+    "@site/shared": "*",
+    "@tanstack/react-query": "^5.104.0",
+    "clsx": "^2.1.1",
+    "github-slugger": "^2.0.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-hook-form": "^7.89.0",
+    "react-markdown": "^10.1.0",
+    "react-router": "^7.18.4",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "shiki": "^4.4.3",
+    "zod": "^4.6.5"
+  }
+}

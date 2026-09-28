@@ -1,0 +1,37 @@
+# Local development databases. Production hosting is handled separately.
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: site
+      POSTGRES_PASSWORD: site
+      POSTGRES_DB: site
+    ports:
+      - '5432:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U site -d site']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  db-test:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: site
+      POSTGRES_PASSWORD: site
+      POSTGRES_DB: site_test
+    ports:
+      - '5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U site -d site_test']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:
