@@ -18,6 +18,21 @@ const queryClient = new QueryClient({
   },
 });
 
+// A page's code chunk can go missing if the tab outlived a deploy or a dev
+// server restart. Reload once to pick up fresh assets instead of erroring.
+window.addEventListener('vite:preloadError', (event) => {
+  const key = 'chunk-reload-at';
+  try {
+    const last = Number(sessionStorage.getItem(key));
+    if (Date.now() - last < 10_000) return; // already retried; let the error page show
+    sessionStorage.setItem(key, String(Date.now()));
+  } catch {
+    /* storage unavailable: still reload once */
+  }
+  event.preventDefault();
+  window.location.reload();
+});
+
 const router = createRouter();
 
 createRoot(document.getElementById('root')!).render(

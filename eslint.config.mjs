@@ -36,6 +36,12 @@ export default tseslint.config(
     },
   },
   {
+    // Plain CommonJS on purpose, so it parses on any Node version (see file header).
+    files: ['scripts/**/*.js'],
+    languageOptions: { sourceType: 'commonjs', globals: globals.node },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
     files: ['apps/web/src/test/**', '**/*.test.{ts,tsx}'],
     rules: { 'react-refresh/only-export-components': 'off' },
   },
