@@ -22,7 +22,11 @@
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:migrate": "npm run db:migrate -w @site/api",
-    "db:seed": "npm run db:seed -w @site/api"
+    "db:seed": "npm run db:seed -w @site/api",
+    "predev": "node scripts/check-node.js",
+    "prebuild": "node scripts/check-node.js",
+    "pretest": "node scripts/check-node.js",
+    "pretypecheck": "node scripts/check-node.js"
   },
   "allowScripts": {
     "argon2@0.45.1": true,

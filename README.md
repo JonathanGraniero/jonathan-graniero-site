@@ -14,11 +14,15 @@ packages/
   shared/     API contract types imported by both apps
 ```
 
+## Prerequisites
+
+- **Node 24+**, pinned in `.nvmrc`. With [nvm](https://github.com/nvm-sh/nvm), run `nvm install && nvm use`. Your shell must load nvm (the `NVM_DIR` / `nvm.sh` lines in `~/.zshrc` or `~/.bashrc`). If `node -v` still shows an old version, it probably doesn't. Running a script on an older Node fails right away with a message explaining this.
+- **Docker** (for Postgres).
+
 ## Quick start
 
-Requires **Node 24** (`nvm use`) and **Docker**.
-
 ```bash
+nvm use
 npm install
 cp apps/api/.env.example apps/api/.env   # then set JWT_SECRET and ADMIN_* values
 npm run db:up                            # Postgres (dev :5432, test :5433)
@@ -37,15 +41,15 @@ In development, Vite proxies `/api` to the Nest server, so the browser only ever
 
 ## Scripts
 
-| Command                           | What it does                                           |
-| --------------------------------- | ------------------------------------------------------ |
-| `npm run dev`                     | API (watch mode) and web dev server together           |
-| `npm run build`                   | Build shared → api → web                               |
-| `npm test`                        | API unit tests (Jest) + web tests (Vitest)             |
-| `npm run test:e2e`                | API end-to-end tests against the `db-test` container   |
-| `npm run lint` / `typecheck`      | ESLint (flat config) / `tsc` across all workspaces     |
-| `npm run format`                  | Prettier                                               |
-| `npm run db:migrate` / `db:seed`  | Prisma migrations / idempotent seed                    |
+| Command                          | What it does                                         |
+| -------------------------------- | ---------------------------------------------------- |
+| `npm run dev`                    | API (watch mode) and web dev server together         |
+| `npm run build`                  | Build shared → api → web                             |
+| `npm test`                       | API unit tests (Jest) + web tests (Vitest)           |
+| `npm run test:e2e`               | API end-to-end tests against the `db-test` container |
+| `npm run lint` / `typecheck`     | ESLint (flat config) / `tsc` across all workspaces   |
+| `npm run format`                 | Prettier                                             |
+| `npm run db:migrate` / `db:seed` | Prisma migrations / idempotent seed                  |
 
 The e2e suite truncates every table before it runs. It refuses to run unless `NODE_ENV=test` and the database name ends in `_test`.
 
@@ -53,18 +57,18 @@ The e2e suite truncates every table before it runs. It refuses to run unless `NO
 
 All routes are prefixed with `/api`.
 
-| Method & path                          | Auth  | Notes                                                        |
-| -------------------------------------- | ----- | ------------------------------------------------------------ |
-| `GET /posts?page&pageSize&tag&q`       | —     | Published posts. `q` = ranked Postgres full-text, prefix match |
-| `GET /posts/:slug`                     | —     | Includes previous/next neighbours                            |
-| `GET /tags`                            | —     | Tags with published post counts                              |
-| `GET /profile`, `/experience`, `/skills`, `/projects?featured` | — | Career content                                  |
-| `POST /contact`                        | —     | Validated, honeypot-protected, 3 req / 10 min per IP         |
-| `GET /rss.xml`, `/sitemap.xml`         | —     | Feeds for readers and crawlers                               |
-| `GET /health`                          | —     | Terminus DB + heap check                                     |
-| `POST /auth/login`, `/auth/logout`, `GET /auth/me` | —/✓ | httpOnly JWT cookie; login limited to 5/min           |
-| `GET/POST/PATCH/DELETE /admin/posts[/:id]` | ✓ | Drafts, slug generation, tag upsert, publish timestamps     |
-| `PATCH /admin/profile`                 | ✓     | Profile and social links                                     |
+| Method & path                                                  | Auth | Notes                                                          |
+| -------------------------------------------------------------- | ---- | -------------------------------------------------------------- |
+| `GET /posts?page&pageSize&tag&q`                               | —    | Published posts. `q` = ranked Postgres full-text, prefix match |
+| `GET /posts/:slug`                                             | —    | Includes previous/next neighbours                              |
+| `GET /tags`                                                    | —    | Tags with published post counts                                |
+| `GET /profile`, `/experience`, `/skills`, `/projects?featured` | —    | Career content                                                 |
+| `POST /contact`                                                | —    | Validated, honeypot-protected, 3 req / 10 min per IP           |
+| `GET /rss.xml`, `/sitemap.xml`                                 | —    | Feeds for readers and crawlers                                 |
+| `GET /health`                                                  | —    | Terminus DB + heap check                                       |
+| `POST /auth/login`, `/auth/logout`, `GET /auth/me`             | —/✓  | httpOnly JWT cookie; login limited to 5/min                    |
+| `GET/POST/PATCH/DELETE /admin/posts[/:id]`                     | ✓    | Drafts, slug generation, tag upsert, publish timestamps        |
+| `PATCH /admin/profile`                                         | ✓    | Profile and social links                                       |
 
 ## Design notes
 
