@@ -1,76 +1,122 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
+import { HeroArt } from '../components/art/HeroArt.tsx';
+import { GitHubIcon, LinkedInIcon } from '../components/icons.tsx';
 import { PostCard, PostCardSkeleton } from '../components/PostCard.tsx';
 import { ProjectCard } from '../components/ProjectCard.tsx';
 import { Seo } from '../components/Seo.tsx';
-import { ButtonLink, Container, ErrorState, SectionHeading, Skeleton } from '../components/ui.tsx';
+import {
+  ArrowLink,
+  ButtonLink,
+  Container,
+  ErrorState,
+  SectionHeading,
+  Skeleton,
+} from '../components/ui.tsx';
 import { queries, useProfile } from '../lib/queries.ts';
 
 export function HomePage() {
   const profile = useProfile();
   const posts = useQuery(queries.posts({ pageSize: 3 }));
   const projects = useQuery(queries.projects(true));
+  const latest = posts.data?.items[0];
 
   return (
     <>
       <Seo description={profile.data?.headline} />
-      <section className="relative overflow-hidden border-b border-zinc-200 dark:border-zinc-800">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,var(--color-accent-100),transparent_60%)] dark:bg-[radial-gradient(ellipse_at_top_left,color-mix(in_oklch,var(--color-accent-900)_45%,transparent),transparent_60%)]"
-        />
-        <Container className="relative py-20 sm:py-28">
-          <p className="font-mono text-sm text-accent-700 dark:text-accent-400">Hi, I&apos;m</p>
-          {profile.isPending ? (
-            <div className="mt-3 space-y-4">
-              <Skeleton className="h-12 w-80" />
-              <Skeleton className="h-6 w-full max-w-xl" />
+
+      <section className="relative overflow-hidden">
+        <Container className="grid items-center gap-8 pt-16 pb-12 sm:pt-24 lg:grid-cols-[1.15fr_1fr] lg:pb-20">
+          <div className="animate-fade-up relative z-10">
+            {latest && (
+              <Link
+                to={`/blog/${latest.slug}`}
+                className="group mb-8 inline-flex max-w-full items-center gap-2 rounded-full border border-zinc-200 bg-white/60 py-1 pr-3 pl-1 text-sm backdrop-blur transition hover:border-accent-500/50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-accent-400/40"
+              >
+                <span className="rounded-full bg-gradient-to-r from-accent-500 to-accent2-500 px-2 py-0.5 font-mono text-[11px] font-semibold text-white">
+                  new
+                </span>
+                <span className="truncate text-zinc-700 dark:text-zinc-300">{latest.title}</span>
+                <span aria-hidden className="text-zinc-400 transition group-hover:translate-x-0.5">
+                  →
+                </span>
+              </Link>
+            )}
+
+            {profile.isPending ? (
+              <div className="space-y-4">
+                <Skeleton className="h-14 w-96 max-w-full" />
+                <Skeleton className="h-6 w-full max-w-xl" />
+              </div>
+            ) : (
+              <>
+                <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl lg:text-7xl">
+                  <span className="text-gradient">
+                    Hi, I&apos;m {profile.data?.name.split(' ')[0] ?? 'Jonathan'}.
+                  </span>
+                </h1>
+                <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-600 sm:text-xl dark:text-zinc-400">
+                  {profile.data?.headline}
+                </p>
+              </>
+            )}
+
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <ButtonLink to="/blog">Read the blog</ButtonLink>
+              <ButtonLink to="/about" variant="secondary">
+                About &amp; career
+              </ButtonLink>
+              <div className="ml-1 flex items-center gap-1">
+                {profile.data?.social.github && (
+                  <a
+                    href={profile.data.social.github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="GitHub"
+                    className="grid size-10 place-items-center rounded-full text-zinc-500 transition hover:bg-zinc-900/5 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-white"
+                  >
+                    <GitHubIcon className="size-5" />
+                  </a>
+                )}
+                {profile.data?.social.linkedin && (
+                  <a
+                    href={profile.data.social.linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="LinkedIn"
+                    className="grid size-10 place-items-center rounded-full text-zinc-500 transition hover:bg-zinc-900/5 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-white"
+                  >
+                    <LinkedInIcon className="size-4.5" />
+                  </a>
+                )}
+              </div>
             </div>
-          ) : (
-            <>
-              <h1 className="mt-2 text-4xl font-bold tracking-tight text-zinc-900 sm:text-6xl dark:text-zinc-50">
-                {profile.data?.name ?? 'Jonathan Graniero'}
-              </h1>
-              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-zinc-600 sm:text-xl dark:text-zinc-400">
-                {profile.data?.headline}
-              </p>
-            </>
-          )}
-          <div className="mt-8 flex flex-wrap gap-3">
-            <ButtonLink to="/blog">Read the blog</ButtonLink>
-            <ButtonLink to="/about" variant="secondary">
-              About &amp; career
-            </ButtonLink>
+          </div>
+
+          {/* Decorative: sits behind the text on small screens, beside it on large ones. */}
+          <div className="pointer-events-none absolute -right-24 -top-10 w-[34rem] opacity-25 sm:opacity-50 lg:pointer-events-auto lg:relative lg:top-0 lg:right-0 lg:w-full lg:opacity-100">
+            <HeroArt className="w-full" />
           </div>
         </Container>
       </section>
 
-      <Container className="grid gap-16 py-16 lg:grid-cols-[3fr_2fr]">
+      <Container className="space-y-24 py-12">
         <section aria-labelledby="recent-posts">
-          <SectionHeading
-            action={
-              <Link
-                to="/blog"
-                className="text-sm font-medium text-accent-700 hover:underline dark:text-accent-400"
-              >
-                All posts →
-              </Link>
-            }
-          >
-            <span id="recent-posts">Recent writing</span>
+          <SectionHeading eyebrow="// writing" action={<ArrowLink to="/blog">All posts</ArrowLink>}>
+            <span id="recent-posts">Recent posts</span>
           </SectionHeading>
           {posts.isPending ? (
-            <div className="space-y-4">
+            <div className="grid gap-6 md:grid-cols-3">
               {[0, 1, 2].map((i) => (
-                <PostCardSkeleton key={i} />
+                <PostCardSkeleton key={i} layout="tile" />
               ))}
             </div>
           ) : posts.isError ? (
             <ErrorState error={posts.error} onRetry={() => void posts.refetch()} />
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="grid gap-6 md:grid-cols-3">
               {posts.data.items.map((p) => (
-                <PostCard key={p.id} post={p} />
+                <PostCard key={p.id} post={p} layout="tile" />
               ))}
             </div>
           )}
@@ -78,29 +124,23 @@ export function HomePage() {
 
         <section aria-labelledby="featured-projects">
           <SectionHeading
-            action={
-              <Link
-                to="/projects"
-                className="text-sm font-medium text-accent-700 hover:underline dark:text-accent-400"
-              >
-                All projects →
-              </Link>
-            }
+            eyebrow="// building"
+            action={<ArrowLink to="/projects">All projects</ArrowLink>}
           >
             <span id="featured-projects">Featured projects</span>
           </SectionHeading>
           {projects.isPending ? (
-            <div className="space-y-4">
-              {[0, 1].map((i) => (
-                <Skeleton key={i} className="h-32" />
+            <div className="grid gap-6 md:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-80" />
               ))}
             </div>
           ) : projects.isError ? (
             <ErrorState error={projects.error} />
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="grid gap-6 md:grid-cols-3">
               {projects.data.map((p) => (
-                <ProjectCard key={p.id} project={p} compact />
+                <ProjectCard key={p.id} project={p} />
               ))}
             </div>
           )}

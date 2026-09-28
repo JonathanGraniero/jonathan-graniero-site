@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router';
+import { CoverArt } from '../components/art/CoverArt.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { Seo } from '../components/Seo.tsx';
 import { TagLink } from '../components/TagLink.tsx';
@@ -44,8 +45,15 @@ export function PostPage() {
               >
                 ← All posts
               </Link>
-              <header className="mt-6 border-b border-zinc-200 pb-8 dark:border-zinc-800">
-                <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+              <header className="animate-fade-up mt-6 border-b border-zinc-200/70 pb-10 dark:border-white/[0.06]">
+                <div className="glass relative mb-8 aspect-[5/2] overflow-hidden p-0!">
+                  {post.data.coverImage ? (
+                    <img src={post.data.coverImage} alt="" className="size-full object-cover" />
+                  ) : (
+                    <CoverArt seed={post.data.slug} className="size-full" />
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-zinc-500">
                   {post.data.publishedAt && (
                     <time dateTime={post.data.publishedAt}>
                       {formatDate(post.data.publishedAt)}
@@ -54,10 +62,12 @@ export function PostPage() {
                   <span aria-hidden>·</span>
                   <span>{post.data.readingTimeMin} min read</span>
                 </div>
-                <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
+                <h1 className="text-gradient mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
                   {post.data.title}
                 </h1>
-                <p className="mt-4 text-lg text-zinc-600 dark:text-zinc-400">{post.data.excerpt}</p>
+                <p className="mt-5 text-lg leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  {post.data.excerpt}
+                </p>
                 {post.data.tags.length > 0 && (
                   <ul className="mt-5 flex flex-wrap gap-2" aria-label="Tags">
                     {post.data.tags.map((t) => (
@@ -74,12 +84,12 @@ export function PostPage() {
               {(post.data.previous || post.data.next) && (
                 <nav
                   aria-label="More posts"
-                  className="mt-16 grid gap-4 border-t border-zinc-200 pt-8 sm:grid-cols-2 dark:border-zinc-800"
+                  className="mt-16 grid gap-4 border-t border-zinc-200/70 pt-8 sm:grid-cols-2 dark:border-white/[0.06]"
                 >
                   {post.data.previous ? (
                     <Link
                       to={`/blog/${post.data.previous.slug}`}
-                      className="group rounded-xl border border-zinc-200 p-4 transition hover:border-accent-500 dark:border-zinc-800"
+                      className="glass-interactive group p-5"
                     >
                       <span className="text-xs uppercase tracking-wide text-zinc-500">← Older</span>
                       <span className="mt-1 block font-medium text-zinc-900 group-hover:text-accent-700 dark:text-zinc-100 dark:group-hover:text-accent-400">
@@ -92,7 +102,7 @@ export function PostPage() {
                   {post.data.next && (
                     <Link
                       to={`/blog/${post.data.next.slug}`}
-                      className="group rounded-xl border border-zinc-200 p-4 text-right transition hover:border-accent-500 dark:border-zinc-800"
+                      className="glass-interactive group p-5 text-right"
                     >
                       <span className="text-xs uppercase tracking-wide text-zinc-500">Newer →</span>
                       <span className="mt-1 block font-medium text-zinc-900 group-hover:text-accent-700 dark:text-zinc-100 dark:group-hover:text-accent-400">
@@ -106,11 +116,9 @@ export function PostPage() {
 
             {toc.length > 1 && (
               <aside className="hidden lg:block">
-                <nav aria-label="Table of contents" className="sticky top-24">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                    On this page
-                  </p>
-                  <ul className="mt-3 space-y-2 border-l border-zinc-200 text-sm dark:border-zinc-800">
+                <nav aria-label="Table of contents" className="sticky top-28">
+                  <p className="eyebrow">On this page</p>
+                  <ul className="mt-4 space-y-2 border-l border-zinc-200 text-sm dark:border-white/10">
                     {toc.map((entry) => (
                       <li key={entry.id}>
                         <a

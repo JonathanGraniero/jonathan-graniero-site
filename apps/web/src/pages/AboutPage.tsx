@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Skill, SkillCategory } from '@site/shared';
+import { CoverArt } from '../components/art/CoverArt.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { Seo } from '../components/Seo.tsx';
 import {
@@ -34,11 +35,12 @@ export function AboutPage() {
   const skills = useQuery(queries.skills());
 
   return (
-    <Container className="py-14">
+    <Container className="py-16 sm:py-20">
       <Seo title="About" description={profile.data?.headline} />
       <div className="grid gap-12 lg:grid-cols-[2fr_1fr]">
-        <section>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
+        <section className="animate-fade-up">
+          <p className="eyebrow">// about</p>
+          <h1 className="text-gradient mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
             About me
           </h1>
           {profile.isPending ? (
@@ -70,50 +72,59 @@ export function AboutPage() {
           )}
         </section>
 
-        <aside className="self-start rounded-xl border border-zinc-200 p-6 dark:border-zinc-800">
-          <dl className="space-y-4 text-sm">
-            <div>
-              <dt className="text-zinc-500">Based in</dt>
-              <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">
-                {profile.data?.location ?? '—'}
-              </dd>
-            </div>
-            {profile.data?.social.email && (
+        <aside className="glass self-start overflow-hidden">
+          <div className="relative aspect-[2/1]">
+            {profile.data?.avatarUrl ? (
+              <img src={profile.data.avatarUrl} alt="" className="size-full object-cover" />
+            ) : (
+              <CoverArt seed={profile.data?.name ?? 'profile'} className="size-full" />
+            )}
+          </div>
+          <div className="p-6">
+            <dl className="space-y-4 text-sm">
               <div>
-                <dt className="text-zinc-500">Email</dt>
-                <dd className="mt-0.5">
-                  <a
-                    href={`mailto:${profile.data.social.email}`}
-                    className="font-medium text-accent-700 hover:underline dark:text-accent-400"
-                  >
-                    {profile.data.social.email}
-                  </a>
+                <dt className="text-zinc-500">Based in</dt>
+                <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">
+                  {profile.data?.location ?? '—'}
                 </dd>
               </div>
-            )}
-            {profile.data?.social.github && (
-              <div>
-                <dt className="text-zinc-500">GitHub</dt>
-                <dd className="mt-0.5">
-                  <a
-                    href={profile.data.social.github}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-accent-700 hover:underline dark:text-accent-400"
-                  >
-                    {profile.data.social.github.replace(/^https?:\/\/(www\.)?/, '')}
-                  </a>
-                </dd>
-              </div>
-            )}
-          </dl>
+              {profile.data?.social.email && (
+                <div>
+                  <dt className="text-zinc-500">Email</dt>
+                  <dd className="mt-0.5">
+                    <a
+                      href={`mailto:${profile.data.social.email}`}
+                      className="font-medium text-accent-700 hover:underline dark:text-accent-400"
+                    >
+                      {profile.data.social.email}
+                    </a>
+                  </dd>
+                </div>
+              )}
+              {profile.data?.social.github && (
+                <div>
+                  <dt className="text-zinc-500">GitHub</dt>
+                  <dd className="mt-0.5">
+                    <a
+                      href={profile.data.social.github}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-accent-700 hover:underline dark:text-accent-400"
+                    >
+                      {profile.data.social.github.replace(/^https?:\/\/(www\.)?/, '')}
+                    </a>
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
         </aside>
       </div>
 
       {/* Hidden until there's work history to show. */}
       {!(experience.isSuccess && experience.data.length === 0) && (
         <section className="mt-20" aria-labelledby="experience">
-          <SectionHeading>
+          <SectionHeading eyebrow="// career">
             <span id="experience">Experience</span>
           </SectionHeading>
           {experience.isPending ? (
@@ -158,7 +169,7 @@ export function AboutPage() {
       )}
 
       <section className="mt-20" aria-labelledby="skills">
-        <SectionHeading>
+        <SectionHeading eyebrow="// toolbox">
           <span id="skills">Skills</span>
         </SectionHeading>
         {skills.isPending ? (
@@ -168,16 +179,14 @@ export function AboutPage() {
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {groupSkills(skills.data).map(([category, items]) => (
-              <div
-                key={category}
-                className="rounded-xl border border-zinc-200 p-5 dark:border-zinc-800"
-              >
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                  {CATEGORY_LABELS[category]}
-                </h3>
-                <ul className="mt-3 space-y-2">
+              <div key={category} className="glass-interactive p-6">
+                <h3 className="eyebrow">{CATEGORY_LABELS[category]}</h3>
+                <ul className="mt-4 flex flex-wrap gap-2">
                   {items.map((s) => (
-                    <li key={s.id} className="text-sm text-zinc-800 dark:text-zinc-200">
+                    <li
+                      key={s.id}
+                      className="rounded-full border border-zinc-200 bg-white/70 px-3 py-1 text-sm text-zinc-800 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200"
+                    >
                       {s.name}
                     </li>
                   ))}

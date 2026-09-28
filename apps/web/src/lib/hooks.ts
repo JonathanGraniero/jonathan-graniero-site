@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 export function useDebouncedValue<T>(value: T, delayMs = 300): T {
   const [debounced, setDebounced] = useState(value);
@@ -32,4 +32,20 @@ export function useActiveHeading(ids: string[]): string | null {
   }, [key]);
 
   return active;
+}
+
+const reducedMotionQuery = '(prefers-reduced-motion: reduce)';
+
+/** Live `prefers-reduced-motion` preference (false where matchMedia is unavailable). */
+export function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      if (typeof matchMedia === 'undefined') return () => {};
+      const mq = matchMedia(reducedMotionQuery);
+      mq.addEventListener('change', onChange);
+      return () => mq.removeEventListener('change', onChange);
+    },
+    () => typeof matchMedia !== 'undefined' && matchMedia(reducedMotionQuery).matches,
+    () => false,
+  );
 }

@@ -1,51 +1,64 @@
 import type { Project } from '@site/shared';
+import { CoverArt } from './art/CoverArt.tsx';
+import { ArrowUpRightIcon, GitHubIcon } from './icons.tsx';
 import { Badge } from './ui.tsx';
 
-export function ProjectCard({ project, compact = false }: { project: Project; compact?: boolean }) {
+const linkClass =
+  'relative z-10 inline-flex items-center gap-1.5 rounded-full text-sm font-medium text-zinc-700 transition hover:text-accent-700 dark:text-zinc-300 dark:hover:text-accent-300';
+
+export function ProjectCard({ project }: { project: Project }) {
+  const primaryLabel =
+    project.url && /\/pull\/\d+/.test(project.url) ? 'Pull request' : 'Live site';
+
   return (
-    <article className="group flex h-full flex-col rounded-xl border border-zinc-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-accent-500/60 hover:shadow-lg hover:shadow-accent-900/5 dark:border-zinc-800 dark:bg-zinc-900/50 dark:hover:border-accent-500/50">
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">{project.name}</h3>
-        {project.featured && !compact && (
-          <span className="rounded-full bg-accent-100 px-2 py-0.5 text-xs font-medium text-accent-800 dark:bg-accent-900/40 dark:text-accent-300">
-            Featured
+    <article className="glass-interactive group relative flex h-full flex-col overflow-hidden">
+      <div className="relative aspect-[2/1] overflow-hidden">
+        <CoverArt
+          seed={project.name}
+          className="size-full transition duration-700 group-hover:scale-[1.04]"
+        />
+        {project.featured && (
+          <span className="absolute right-3 top-3 rounded-full border border-white/20 bg-black/40 px-2.5 py-0.5 font-mono text-[11px] text-white backdrop-blur">
+            featured
           </span>
         )}
       </div>
-      <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-        {project.description}
-      </p>
-      <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Technologies">
-        {project.tech.map((t) => (
-          <li key={t}>
-            <Badge>{t}</Badge>
-          </li>
-        ))}
-      </ul>
-      {(project.url || project.repoUrl) && (
-        <div className="mt-4 flex gap-4 text-sm font-medium">
-          {project.url && (
-            <a
-              href={project.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent-700 hover:underline dark:text-accent-400"
-            >
-              {/\/pull\/\d+/.test(project.url) ? 'Pull request ↗' : 'Live site ↗'}
-            </a>
-          )}
-          {project.repoUrl && (
-            <a
-              href={project.repoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent-700 hover:underline dark:text-accent-400"
-            >
-              Source ↗
-            </a>
-          )}
-        </div>
-      )}
+      <div className="flex flex-1 flex-col p-5 sm:p-6">
+        <h3 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-white">
+          {project.name}
+        </h3>
+        <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+          {project.description}
+        </p>
+        <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Technologies">
+          {project.tech.map((t) => (
+            <li key={t}>
+              <Badge>{t}</Badge>
+            </li>
+          ))}
+        </ul>
+        {(project.url || project.repoUrl) && (
+          <div className="mt-5 flex gap-5 border-t border-zinc-200/70 pt-4 dark:border-white/[0.06]">
+            {project.url && (
+              <a href={project.url} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                {primaryLabel}
+                <ArrowUpRightIcon className="size-3.5" />
+              </a>
+            )}
+            {project.repoUrl && (
+              <a
+                href={project.repoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkClass}
+              >
+                <GitHubIcon className="size-3.5" />
+                Source
+              </a>
+            )}
+          </div>
+        )}
+      </div>
     </article>
   );
 }

@@ -8,14 +8,14 @@ export function TagLink({ tag, active, count }: { tag: Tag; active?: boolean; co
       to={active ? '/blog' : `/blog?tag=${tag.slug}`}
       aria-pressed={active}
       className={clsx(
-        'inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-medium transition',
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium transition',
         active
-          ? 'border-accent-600 bg-accent-600 text-white dark:border-accent-500 dark:bg-accent-500 dark:text-zinc-950'
-          : 'border-zinc-200 text-zinc-600 hover:border-accent-500 hover:text-accent-700 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-accent-400 dark:hover:text-accent-400',
+          ? 'border-transparent bg-zinc-900 text-white dark:bg-white dark:text-zinc-950'
+          : 'border-zinc-200 bg-white/60 text-zinc-600 hover:border-accent-500/60 hover:text-accent-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:border-accent-400/50 dark:hover:text-accent-300',
       )}
     >
       #{tag.name}
-      {count !== undefined && <span className="opacity-60">{count}</span>}
+      {count !== undefined && <span className="opacity-50">{count}</span>}
     </Link>
   );
 }

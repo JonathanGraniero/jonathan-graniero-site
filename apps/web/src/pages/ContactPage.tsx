@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useForm, useWatch } from 'react-hook-form';
 import { FormField } from '../components/FormField.tsx';
 import { Seo } from '../components/Seo.tsx';
-import { Button, Container } from '../components/ui.tsx';
+import { Button, Container, PageHeader } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { contactSchema, type ContactValues } from '../lib/schemas.ts';
 
@@ -24,16 +24,13 @@ export function ContactPage() {
   const messageLength = useWatch({ control: form.control, name: 'message' }).length;
 
   return (
-    <Container className="py-14">
+    <Container className="py-16 sm:py-20">
       <Seo title="Contact" description="Get in touch." />
       <div className="mx-auto max-w-xl">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
-          Get in touch
-        </h1>
-        <p className="mt-3 text-zinc-600 dark:text-zinc-400">
+        <PageHeader eyebrow="// contact" title="Get in touch">
           Questions about a post, an opportunity, or just want to say hi? Send a note and I&apos;ll
           get back to you.
-        </p>
+        </PageHeader>
 
         {send.isSuccess ? (
           <div
