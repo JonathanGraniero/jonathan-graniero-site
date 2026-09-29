@@ -1,151 +1,197 @@
 import clsx from 'clsx';
-import { useState } from 'react';
-import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigation } from 'react-router';
+import { useEffect, useState } from 'react';
+import {
+  Link,
+  NavLink,
+  Outlet,
+  ScrollRestoration,
+  useLocation,
+  useNavigate,
+  useNavigation,
+} from 'react-router';
+import { FOCUS_SEARCH_EVENT, useHotkeys } from '../lib/hotkeys.ts';
 import { useProfile } from '../lib/queries.ts';
-import { GitHubIcon, LinkedInIcon, RssIcon } from './icons.tsx';
+import { useTheme } from '../lib/theme-context.ts';
 import { ThemeToggle } from './ThemeToggle.tsx';
-import { Container } from './ui.tsx';
+import { Container, Kbd } from './ui.tsx';
 
+/** `key` is the shortcut letter used with `g` (e.g. `g b` → blog). */
 const NAV = [
-  { to: '/blog', label: 'Blog' },
-  { to: '/about', label: 'About' },
-  { to: '/projects', label: 'Projects' },
-  { to: '/contact', label: 'Contact' },
+  { to: '/blog', label: 'blog', key: 'b' },
+  { to: '/projects', label: 'projects', key: 'p' },
+  { to: '/about', label: 'about', key: 'a' },
+  { to: '/contact', label: 'contact', key: 'c' },
 ];
 
-const navClass = ({ isActive }: { isActive: boolean }) =>
-  clsx(
-    'relative rounded-full px-3.5 py-1.5 text-sm font-medium transition',
-    isActive
-      ? 'bg-zinc-900/[0.06] text-zinc-900 dark:bg-white/10 dark:text-white'
-      : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white',
-  );
-
-function Logo({ name }: { name: string }) {
+function NavItem({ to, label, hotkey }: { to: string; label: string; hotkey: string }) {
   return (
-    <Link
-      to="/"
-      className="group flex items-center gap-2.5 font-semibold tracking-tight text-zinc-900 dark:text-white"
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        clsx(
+          'px-2 py-1 text-xs transition',
+          isActive ? 'bg-ink text-bg' : 'text-dim hover:text-signal',
+        )
+      }
     >
-      <span className="relative grid size-8 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-accent-500 to-accent2-500 font-mono text-[13px] font-bold text-white shadow-lg shadow-accent-500/20 transition group-hover:rotate-6 group-hover:scale-105">
-        JG
-      </span>
-      <span className="hidden sm:inline">{name}</span>
-    </Link>
+      {/* Underline the shortcut letter, like a menu accelerator. */}
+      {label.split('').map((ch, i) =>
+        ch === hotkey && label.indexOf(hotkey) === i ? (
+          <span key={i} className="underline decoration-signal underline-offset-4">
+            {ch}
+          </span>
+        ) : (
+          ch
+        ),
+      )}
+    </NavLink>
+  );
+}
+
+function HelpPanel({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const rows: [string, string][] = [
+    ['g h', 'home'],
+    ...NAV.map((n): [string, string] => [`g ${n.key}`, n.label]),
+    ['/', 'search posts'],
+    ['t', 'cycle theme'],
+    ['?', 'toggle this help'],
+  ];
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-bg/70 p-4" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="help-title"
+        className="w-full max-w-sm border border-line bg-panel p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-xs text-faint">
+          <span className="text-signal">$</span> man site
+        </p>
+        <h2 id="help-title" className="mt-3 text-sm font-semibold">
+          Keyboard shortcuts
+        </h2>
+        <table className="mt-4 w-full text-xs">
+          <tbody>
+            {rows.map(([keys, what]) => (
+              <tr key={keys} className="border-t border-line/60">
+                <td className="py-2 pr-4">
+                  {keys.split(' ').map((k) => (
+                    <Kbd key={k}>{k}</Kbd>
+                  ))}
+                </td>
+                <td className="py-2 text-dim">{what}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button type="button" onClick={onClose} className="mt-4 text-xs text-dim hover:text-signal">
+          [esc] close
+        </button>
+      </div>
+    </div>
   );
 }
 
 export function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const navigation = useNavigation();
   const { data: profile } = useProfile();
-  const name = profile?.name ?? 'Jonathan Graniero';
-  // Remember which page the menu was opened on, so navigating closes it.
-  const [menuPath, setMenuPath] = useState<string | null>(null);
-  const menuOpen = menuPath === location.pathname;
+  const { preference, setPreference } = useTheme();
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  const path = location.pathname === '/' ? '~' : `~${location.pathname}`;
+
+  useHotkeys({
+    'g h': () => void navigate('/'),
+    ...Object.fromEntries(NAV.map((n) => [`g ${n.key}`, () => void navigate(n.to)])),
+    '/': () => {
+      if (location.pathname === '/blog') window.dispatchEvent(new Event(FOCUS_SEARCH_EVENT));
+      else void navigate('/blog', { state: { focusSearch: true } });
+    },
+    t: () =>
+      setPreference(preference === 'system' ? 'light' : preference === 'light' ? 'dark' : 'system'),
+    '?': () => setHelpOpen((o) => !o),
+  });
 
   return (
-    <div className="relative isolate flex min-h-dvh flex-col">
-      <div className="site-backdrop" aria-hidden />
-      <div className="site-grain" aria-hidden />
+    <div className="scanlines flex min-h-dvh flex-col">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:shadow dark:focus:bg-zinc-900"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:bg-signal focus:px-4 focus:py-2 focus:text-signal-ink"
       >
         Skip to content
       </a>
       {navigation.state === 'loading' && (
         <div
-          className="fixed inset-x-0 top-0 z-50 h-0.5 animate-pulse bg-gradient-to-r from-accent-500 to-accent2-500"
+          className="fixed inset-x-0 top-0 z-50 h-0.5 animate-pulse bg-signal"
           role="progressbar"
           aria-label="Loading page"
         />
       )}
 
-      <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5">
-        <div className="glass mx-auto flex h-14 max-w-5xl items-center justify-between rounded-full! px-3 pl-4 shadow-lg shadow-zinc-900/5 dark:bg-zinc-950/60! dark:shadow-black/30">
-          <Logo name={name} />
-
-          <nav aria-label="Main" className="hidden items-center gap-0.5 md:flex">
-            {NAV.map((item) => (
-              <NavLink key={item.to} to={item.to} className={navClass}>
-                {item.label}
-              </NavLink>
-            ))}
-            <span className="mx-1.5 h-5 w-px bg-zinc-200 dark:bg-white/10" aria-hidden />
-            <ThemeToggle />
-          </nav>
-
-          <div className="flex items-center gap-1 md:hidden">
-            <ThemeToggle />
-            <button
-              type="button"
-              className="rounded-full p-2 text-zinc-600 hover:bg-zinc-900/5 dark:text-zinc-300 dark:hover:bg-white/10"
-              aria-expanded={menuOpen}
-              aria-controls="mobile-nav"
-              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-              onClick={() => setMenuPath(menuOpen ? null : location.pathname)}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="size-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                aria-hidden
-              >
-                {menuOpen ? (
-                  <path d="M6 6l12 12M18 6L6 18" />
-                ) : (
-                  <path d="M4 7h16M4 12h16M4 17h16" />
-                )}
-              </svg>
-            </button>
-          </div>
-        </div>
-        {menuOpen && (
-          <nav
-            id="mobile-nav"
-            aria-label="Mobile"
-            className="glass mx-auto mt-2 max-w-5xl p-2 md:hidden dark:bg-zinc-950/80!"
-          >
-            <div className="flex flex-col">
-              {NAV.map((item) => (
-                <NavLink key={item.to} to={item.to} className={navClass}>
-                  {item.label}
-                </NavLink>
+      <header className="sticky top-0 z-40 border-b border-line bg-bg/95 backdrop-blur-sm">
+        <Container className="flex h-12 items-center justify-between gap-4">
+          <Link to="/" className="flex min-w-0 items-center text-xs" aria-label="Home">
+            <span className="font-semibold text-signal">jg@graniero</span>
+            <span className="text-faint">:</span>
+            <span className="truncate text-dim">{path}</span>
+            <span className="text-faint">$</span>
+            <span aria-hidden className="cursor-block ml-1.5 hidden sm:inline-block" />
+          </Link>
+          <div className="flex items-center gap-1">
+            <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
+              {NAV.map((n) => (
+                <NavItem key={n.to} to={n.to} label={n.label} hotkey={n.key} />
               ))}
-            </div>
-          </nav>
-        )}
+            </nav>
+            <span className="mx-2 hidden h-4 w-px bg-line md:block" aria-hidden />
+            <ThemeToggle />
+          </div>
+        </Container>
+        {/* Small screens: nav as a second, scrollable row. */}
+        <nav aria-label="Mobile" className="border-t border-line md:hidden">
+          <Container className="flex gap-1 overflow-x-auto py-1.5">
+            {NAV.map((n) => (
+              <NavItem key={n.to} to={n.to} label={n.label} hotkey={n.key} />
+            ))}
+          </Container>
+        </nav>
       </header>
 
       <main id="main" className="flex-1" tabIndex={-1}>
         <Outlet />
       </main>
 
-      <footer className="mt-24 border-t border-zinc-200/70 py-10 text-sm text-zinc-500 dark:border-white/[0.06] dark:text-zinc-500">
-        <Container className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-          <div className="flex items-center gap-3">
-            <span className="grid size-6 place-items-center rounded-lg bg-gradient-to-br from-accent-500 to-accent2-500 font-mono text-[10px] font-bold text-white">
-              JG
+      {/* Editor-style status line. */}
+      <footer className="mt-24 border-t border-line text-[11px]">
+        <Container className="flex flex-wrap items-stretch justify-between gap-x-4 px-0! sm:px-8!">
+          <div className="flex items-stretch">
+            <span className="bg-signal px-3 py-2 font-semibold text-signal-ink">NORMAL</span>
+            <span className="border-r border-line px-3 py-2 text-dim">
+              ctx: {profile?.name.toLowerCase().replace(/\s+/g, '-') ?? 'jonathan-graniero'}
             </span>
-            <p>
-              © {new Date().getFullYear()} {name}
-            </p>
+            <span className="hidden px-3 py-2 text-faint sm:block">
+              © {new Date().getFullYear()}
+            </span>
           </div>
-          <ul className="flex items-center gap-1">
+          <ul className="flex items-center gap-4 px-4 py-2 text-dim sm:px-0">
             {profile?.social.github && (
               <li>
                 <a
                   href={profile.social.github}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="grid size-9 place-items-center rounded-full transition hover:bg-zinc-900/5 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-white"
-                  aria-label="GitHub"
+                  className="hover:text-signal"
                 >
-                  <GitHubIcon className="size-4.5" />
+                  github
                 </a>
               </li>
             )}
@@ -155,25 +201,27 @@ export function Layout() {
                   href={profile.social.linkedin}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="grid size-9 place-items-center rounded-full transition hover:bg-zinc-900/5 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-white"
-                  aria-label="LinkedIn"
+                  className="hover:text-signal"
                 >
-                  <LinkedInIcon className="size-4" />
+                  linkedin
                 </a>
               </li>
             )}
             <li>
-              <a
-                href="/api/rss.xml"
-                className="grid size-9 place-items-center rounded-full transition hover:bg-zinc-900/5 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-white"
-                aria-label="RSS feed"
-              >
-                <RssIcon className="size-4" />
+              <a href="/api/rss.xml" className="hover:text-signal">
+                rss
               </a>
+            </li>
+            <li>
+              <button type="button" onClick={() => setHelpOpen(true)} className="hover:text-signal">
+                <Kbd>?</Kbd> keys
+              </button>
             </li>
           </ul>
         </Container>
       </footer>
+
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
       <ScrollRestoration />
     </div>
   );

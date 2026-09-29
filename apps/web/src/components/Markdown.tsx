@@ -47,11 +47,15 @@ export const Markdown = memo(function Markdown({ children, className }: Markdown
   return (
     <div
       className={clsx(
-        'prose prose-zinc max-w-none dark:prose-invert',
-        'prose-headings:scroll-mt-24 prose-headings:font-semibold prose-headings:tracking-tight',
-        'prose-a:text-accent-700 prose-a:underline-offset-2 hover:prose-a:text-accent-600 dark:prose-a:text-accent-400',
-        'prose-code:rounded prose-code:bg-zinc-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-zinc-800',
-        'prose-blockquote:border-accent-500 prose-blockquote:font-normal prose-blockquote:not-italic',
+        'prose max-w-none font-serif text-[1.075rem] leading-[1.75]',
+        // Theme the typography plugin through its CSS variables.
+        '[--tw-prose-body:var(--ink)] [--tw-prose-headings:var(--ink)] [--tw-prose-bold:var(--ink)] [--tw-prose-links:var(--signal)] [--tw-prose-counters:var(--faint)] [--tw-prose-bullets:var(--signal)] [--tw-prose-hr:var(--line)] [--tw-prose-quotes:var(--ink)] [--tw-prose-quote-borders:var(--signal)] [--tw-prose-code:var(--ink)] [--tw-prose-th-borders:var(--line)] [--tw-prose-td-borders:var(--line)]',
+        'prose-headings:scroll-mt-20 prose-headings:font-sans prose-headings:font-semibold prose-headings:tracking-tight prose-h2:text-xl prose-h3:text-base',
+        "prose-h2:before:text-signal prose-h2:before:content-['##_'] prose-h3:before:text-signal prose-h3:before:content-['###_']",
+        'prose-a:underline-offset-4 hover:prose-a:decoration-2',
+        'prose-code:border prose-code:border-line prose-code:bg-panel prose-code:px-1 prose-code:py-0.5 prose-code:font-code prose-code:text-[0.85em] prose-code:font-normal prose-code:before:content-none prose-code:after:content-none',
+        'prose-blockquote:font-normal prose-blockquote:not-italic prose-blockquote:text-dim',
+        'prose-table:font-sans prose-table:text-sm prose-th:font-medium prose-th:text-faint',
         className,
       )}
     >

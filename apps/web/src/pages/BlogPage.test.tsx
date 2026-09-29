@@ -2,7 +2,12 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { renderRoute } from '../test/render.tsx';
 
-const titles = () => screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+/** Post titles in table order (tag links inside rows are excluded). */
+const titles = () =>
+  within(screen.getByRole('table', { name: 'Posts' }))
+    .getAllByRole('link')
+    .filter((a) => a.getAttribute('href')?.startsWith('/blog/'))
+    .map((a) => a.textContent);
 
 describe('BlogPage', () => {
   it('lists published posts', async () => {
@@ -15,12 +20,12 @@ describe('BlogPage', () => {
     const { router, user } = renderRoute('/blog');
     const tagFilter = await screen.findByRole('list', { name: 'Filter by tag' });
 
-    await user.click(within(tagFilter).getByRole('link', { name: /#Go/ }));
+    await user.click(within(tagFilter).getByRole('link', { name: /tag=go/ }));
 
     await waitFor(() => expect(titles()).toEqual(['Post number 3', 'Post number 1']));
     expect(router.state.location.search).toBe('?tag=go');
-    expect(screen.getByText(/2 posts/)).toHaveTextContent('2 posts tagged #Go');
-    expect(within(tagFilter).getByRole('link', { name: /#Go/ })).toHaveAttribute(
+    expect(screen.getByText(/2 resources/)).toHaveTextContent('2 resources with label tag=go');
+    expect(within(tagFilter).getByRole('link', { name: /tag=go/ })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -38,6 +43,6 @@ describe('BlogPage', () => {
 
   it('shows an empty state when nothing matches', async () => {
     renderRoute('/blog?q=zzz');
-    expect(await screen.findByText('No posts found')).toBeInTheDocument();
+    expect(await screen.findByText(/No posts found/)).toBeInTheDocument();
   });
 });

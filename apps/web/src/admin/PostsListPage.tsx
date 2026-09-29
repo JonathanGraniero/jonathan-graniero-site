@@ -84,7 +84,7 @@ export function PostsListPage() {
   return (
     <Container className="max-w-6xl py-10">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Posts</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-ink">Posts</h1>
         <ButtonLink to="/admin/posts/new">+ New post</ButtonLink>
       </div>
 
@@ -92,7 +92,7 @@ export function PostsListPage() {
         <div
           role="tablist"
           aria-label="Filter by status"
-          className="inline-flex rounded-lg border border-zinc-200 bg-white p-0.5 dark:border-zinc-800 dark:bg-zinc-900"
+          className="inline-flex border border-line bg-panel p-0.5"
         >
           {FILTERS.map((f) => (
             <button
@@ -101,10 +101,8 @@ export function PostsListPage() {
               aria-selected={status === f.value}
               onClick={() => setParam('status', f.value)}
               className={clsx(
-                'rounded-md px-3 py-1 text-sm font-medium transition',
-                status === f.value
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400',
+                ' px-3 py-1 text-sm font-medium transition',
+                status === f.value ? 'bg-ink text-white' : 'text-dim hover:text-ink ',
               )}
             >
               {f.label}
@@ -117,20 +115,17 @@ export function PostsListPage() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search…"
           aria-label="Search posts"
-          className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30 dark:border-zinc-800 dark:bg-zinc-900"
+          className="border border-line bg-panel px-3 py-1.5 text-sm focus:border-signal focus:outline-none focus:ring-2 focus:ring-signal/30"
         />
       </div>
 
       {(toggle.isError || remove.isError) && (
-        <p
-          role="alert"
-          className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
-        >
+        <p role="alert" className="mt-4 bg-err px-4 py-2 text-sm text-err">
           {(toggle.error ?? remove.error)?.message} — changes were rolled back.
         </p>
       )}
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mt-6 overflow-hidden border border-line bg-panel">
         {posts.isPending ? (
           <div className="space-y-3 p-6">
             {[0, 1, 2, 3].map((i) => (
@@ -144,10 +139,7 @@ export function PostsListPage() {
         ) : posts.data.items.length === 0 ? (
           <div className="p-6">
             <EmptyState title="No posts here yet">
-              <Link
-                to="/admin/posts/new"
-                className="text-accent-700 hover:underline dark:text-accent-400"
-              >
+              <Link to="/admin/posts/new" className="text-signal hover:underline">
                 Write your first post
               </Link>
             </EmptyState>
@@ -155,7 +147,7 @@ export function PostsListPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60">
+              <thead className="border-b border-line bg-line/40 text-xs uppercase tracking-wide text-faint">
                 <tr>
                   <th scope="col" className="px-4 py-3 font-medium">
                     Title
@@ -171,38 +163,36 @@ export function PostsListPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <tbody className="divide-y divide-line">
                 {posts.data.items.map((post) => (
-                  <tr key={post.id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40">
+                  <tr key={post.id} className="hover:bg-line/40">
                     <td className="px-4 py-3">
                       <Link
                         to={`/admin/posts/${post.id}`}
-                        className="font-medium text-zinc-900 hover:text-accent-700 dark:text-zinc-100 dark:hover:text-accent-400"
+                        className="font-medium text-ink hover:text-signal"
                       >
                         {post.title}
                       </Link>
-                      <div className="mt-0.5 font-mono text-xs text-zinc-400">/{post.slug}</div>
+                      <div className="mt-0.5 font-mono text-xs text-faint">/{post.slug}</div>
                     </td>
                     <td className="px-4 py-3">
                       <span
                         className={clsx(
                           'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
-                          post.status === 'PUBLISHED'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+                          post.status === 'PUBLISHED' ? 'bg-ok text-ok' : 'bg-warn text-warn',
                         )}
                       >
                         {post.status === 'PUBLISHED' ? 'Published' : 'Draft'}
                       </span>
                     </td>
-                    <td className="hidden px-4 py-3 text-zinc-500 md:table-cell">
+                    <td className="hidden px-4 py-3 text-faint md:table-cell">
                       {post.publishedAt ? formatDate(post.publishedAt) : '—'}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         {confirmDelete === post.id ? (
                           <>
-                            <span className="mr-1 text-xs text-zinc-500">Delete?</span>
+                            <span className="mr-1 text-xs text-faint">Delete?</span>
                             <Button
                               variant="danger"
                               className="px-2.5 py-1 text-xs"
@@ -238,7 +228,7 @@ export function PostsListPage() {
                             {post.status === 'PUBLISHED' && (
                               <Link
                                 to={`/blog/${post.slug}`}
-                                className="rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                                className="px-2.5 py-1 text-xs font-medium text-dim hover:bg-line/40"
                               >
                                 View
                               </Link>

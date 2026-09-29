@@ -133,28 +133,21 @@ function PostEditor({ post }: { post: PostDetail | undefined }) {
       <form onSubmit={onSubmit} noValidate>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link
-              to="/admin"
-              className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-            >
+            <Link to="/admin" className="text-sm text-faint hover:text-ink">
               ← Posts
             </Link>
-            <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+            <h1 className="text-xl font-bold tracking-tight text-ink">
               {post ? 'Edit post' : 'New post'}
             </h1>
-            {isDirty && (
-              <span className="text-xs text-amber-600 dark:text-amber-400">Unsaved changes</span>
-            )}
-            {!isDirty && save.isSuccess && (
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">Saved</span>
-            )}
+            {isDirty && <span className="text-xs text-warn">Unsaved changes</span>}
+            {!isDirty && save.isSuccess && <span className="text-xs text-ok">Saved</span>}
           </div>
           <div className="flex items-center gap-3">
             <Controller
               control={form.control}
               name="status"
               render={({ field }) => (
-                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-dim">
                   <input
                     type="checkbox"
                     role="switch"
@@ -164,17 +157,14 @@ function PostEditor({ post }: { post: PostDetail | undefined }) {
                   />
                   <span
                     aria-hidden
-                    className="relative h-5 w-9 rounded-full bg-zinc-300 transition peer-checked:bg-accent-600 peer-focus-visible:ring-2 peer-focus-visible:ring-accent-500 after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-4 dark:bg-zinc-700"
+                    className="relative h-5 w-9 rounded-full bg-line transition peer-checked:bg-signal peer-focus-visible:ring-2 peer-focus-visible:ring-signal after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-panel after:transition peer-checked:after:translate-x-4"
                   />
                   Published
                 </label>
               )}
             />
             {post?.status === 'PUBLISHED' && (
-              <Link
-                to={`/blog/${post.slug}`}
-                className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-              >
+              <Link to={`/blog/${post.slug}`} className="text-sm text-faint hover:text-ink">
                 View ↗
               </Link>
             )}
@@ -191,10 +181,7 @@ function PostEditor({ post }: { post: PostDetail | undefined }) {
         </div>
 
         {save.isError && (
-          <p
-            role="alert"
-            className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
-          >
+          <p role="alert" className="mt-4 bg-err px-4 py-2 text-sm text-err">
             {save.error.message}
           </p>
         )}
@@ -225,9 +212,7 @@ function PostEditor({ post }: { post: PostDetail | undefined }) {
             </FormField>
           </div>
           <div>
-            <span className="mb-1.5 block text-sm font-medium text-zinc-800 dark:text-zinc-200">
-              Tags
-            </span>
+            <span className="mb-1.5 block text-sm font-medium text-ink">Tags</span>
             <Controller
               control={form.control}
               name="tags"
@@ -239,7 +224,7 @@ function PostEditor({ post }: { post: PostDetail | undefined }) {
                 />
               )}
             />
-            {errors.tags && <p className="mt-1.5 text-xs text-red-600">{errors.tags.message}</p>}
+            {errors.tags && <p className="mt-1.5 text-xs text-err">{errors.tags.message}</p>}
           </div>
           <FormField label="Cover image URL" error={errors.coverImage?.message}>
             <input type="url" placeholder="https://…" {...form.register('coverImage')} />
@@ -256,10 +241,8 @@ function PostEditor({ post }: { post: PostDetail | undefined }) {
                 aria-selected={tab === t}
                 onClick={() => setTab(t)}
                 className={clsx(
-                  'rounded-md px-3 py-1 text-sm font-medium capitalize',
-                  tab === t
-                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                    : 'text-zinc-500',
+                  ' px-3 py-1 text-sm font-medium capitalize',
+                  tab === t ? 'bg-ink text-white' : 'text-faint',
                 )}
               >
                 {t}
@@ -278,32 +261,30 @@ function PostEditor({ post }: { post: PostDetail | undefined }) {
                 spellCheck
                 placeholder="Write in markdown…"
                 className={clsx(
-                  'h-[65vh] w-full resize-none rounded-xl border bg-white p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 dark:bg-zinc-900',
+                  'h-[65vh] w-full resize-none border bg-panel p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2',
                   errors.contentMd
-                    ? 'border-red-400 focus:ring-red-500/30'
-                    : 'border-zinc-300 focus:border-accent-500 focus:ring-accent-500/30 dark:border-zinc-700',
+                    ? 'border-err focus:ring-err/30'
+                    : 'border-line focus:border-signal focus:ring-signal/30 ',
                 )}
               />
               {errors.contentMd && (
-                <p className="mt-1 text-xs text-red-600">{errors.contentMd.message}</p>
+                <p className="mt-1 text-xs text-err">{errors.contentMd.message}</p>
               )}
             </div>
             <section
               aria-label="Preview"
               className={clsx(
-                'h-[65vh] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950',
+                'h-[65vh] overflow-y-auto border border-line bg-panel p-6',
                 tab === 'write' && 'hidden lg:block',
               )}
             >
               {title && (
-                <h1 className="mb-6 text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                  {title}
-                </h1>
+                <h1 className="mb-6 text-3xl font-bold tracking-tight text-ink">{title}</h1>
               )}
               {content ? (
                 <Markdown>{content}</Markdown>
               ) : (
-                <p className="text-sm text-zinc-400">Nothing to preview yet.</p>
+                <p className="text-sm text-faint">Nothing to preview yet.</p>
               )}
             </section>
           </div>
@@ -314,7 +295,7 @@ function PostEditor({ post }: { post: PostDetail | undefined }) {
         <div
           role="alertdialog"
           aria-labelledby="unsaved-title"
-          className="fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit items-center gap-4 rounded-xl border border-zinc-200 bg-white px-5 py-3 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+          className="fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit items-center gap-4 border border-line bg-panel px-5 py-3 shadow-xl"
         >
           <p id="unsaved-title" className="text-sm font-medium">
             You have unsaved changes.

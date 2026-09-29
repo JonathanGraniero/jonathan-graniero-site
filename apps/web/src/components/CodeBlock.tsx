@@ -34,25 +34,25 @@ export function CodeBlock({ code, lang }: CodeBlockProps) {
 
   return (
     <div className="group relative not-prose my-6">
-      <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-zinc-200 bg-zinc-50 px-4 py-1.5 font-mono text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+      <div className="flex items-center justify-between border border-b-0 border-line bg-panel px-4 py-1.5 font-sans text-[11px] text-faint">
         <span>{lang ?? 'text'}</span>
         <button
           type="button"
           onClick={copy}
-          className="rounded px-2 py-0.5 transition hover:bg-zinc-200 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          className="px-2 py-0.5 transition hover:text-signal"
           aria-label="Copy code to clipboard"
         >
-          {copied ? 'Copied!' : 'Copy'}
+          {copied ? 'copied ✓' : 'copy'}
         </button>
       </div>
       {html ? (
         <div
-          className="overflow-x-auto rounded-b-lg border border-zinc-200 bg-white p-4 font-mono text-sm leading-relaxed dark:border-zinc-800 dark:bg-zinc-950 [&_pre]:!bg-transparent"
+          className="overflow-x-auto border border-line bg-bg p-4 font-code text-[13px] leading-relaxed [&_pre]:!bg-transparent [&_pre]:!font-code"
           // Shiki escapes the source; the output is safe to inject.
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : (
-        <pre className="overflow-x-auto rounded-b-lg border border-zinc-200 bg-white p-4 font-mono text-sm leading-relaxed dark:border-zinc-800 dark:bg-zinc-950">
+        <pre className="overflow-x-auto border border-line bg-bg p-4 font-code text-[13px] leading-relaxed">
           <code>{code}</code>
         </pre>
       )}

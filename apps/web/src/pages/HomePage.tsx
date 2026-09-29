@@ -1,148 +1,172 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { HeroArt } from '../components/art/HeroArt.tsx';
-import { GitHubIcon, LinkedInIcon } from '../components/icons.tsx';
-import { PostCard, PostCardSkeleton } from '../components/PostCard.tsx';
-import { ProjectCard } from '../components/ProjectCard.tsx';
+import { Comment, Dash, K, Line, Seq, V, YamlBlock } from '../components/Manifest.tsx';
+import { Portrait } from '../components/Portrait.tsx';
+import { PostsTable, PostsTableSkeleton } from '../components/PostsTable.tsx';
+import { ProjectsTable } from '../components/ProjectCard.tsx';
 import { Seo } from '../components/Seo.tsx';
-import {
-  ArrowLink,
-  ButtonLink,
-  Container,
-  ErrorState,
-  SectionHeading,
-  Skeleton,
-} from '../components/ui.tsx';
+import { ArrowLink, Container, ErrorState, SectionHeading, Skeleton } from '../components/ui.tsx';
 import { queries, useProfile } from '../lib/queries.ts';
+import { SITE } from '../lib/site.ts';
 
 export function HomePage() {
   const profile = useProfile();
-  const posts = useQuery(queries.posts({ pageSize: 3 }));
+  const posts = useQuery(queries.posts({ pageSize: 5 }));
   const projects = useQuery(queries.projects(true));
   const latest = posts.data?.items[0];
+  const building = projects.data?.[0];
+  const name = profile.data?.name ?? 'Jonathan Graniero';
+  const k8sName = name.toLowerCase().replace(/\s+/g, '-');
 
   return (
     <>
       <Seo description={profile.data?.headline} />
 
-      <section className="relative overflow-hidden">
-        <Container className="grid items-center gap-8 pt-16 pb-12 sm:pt-24 lg:grid-cols-[1.15fr_1fr] lg:pb-20">
-          <div className="animate-fade-up relative z-10">
-            {latest && (
-              <Link
-                to={`/blog/${latest.slug}`}
-                className="group mb-8 inline-flex max-w-full items-center gap-2 rounded-full border border-zinc-200 bg-white/60 py-1 pr-3 pl-1 text-sm backdrop-blur transition hover:border-accent-500/50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-accent-400/40"
-              >
-                <span className="rounded-full bg-gradient-to-r from-accent-500 to-accent2-500 px-2 py-0.5 font-mono text-[11px] font-semibold text-white">
-                  new
-                </span>
-                <span className="truncate text-zinc-700 dark:text-zinc-300">{latest.title}</span>
-                <span aria-hidden className="text-zinc-400 transition group-hover:translate-x-0.5">
-                  →
-                </span>
-              </Link>
-            )}
-
+      <Container className="pt-14 sm:pt-20">
+        <div className="flex flex-col gap-10 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-xs text-faint">
+              <span className="text-signal">$</span> whoami
+            </p>
             {profile.isPending ? (
-              <div className="space-y-4">
-                <Skeleton className="h-14 w-96 max-w-full" />
-                <Skeleton className="h-6 w-full max-w-xl" />
+              <div className="mt-5 space-y-4">
+                <Skeleton className="h-10 w-80 max-w-full" />
+                <Skeleton className="h-5 w-full" />
               </div>
             ) : (
               <>
-                <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl lg:text-7xl">
-                  <span className="text-gradient">
-                    Hi, I&apos;m {profile.data?.name.split(' ')[0] ?? 'Jonathan'}.
-                  </span>
-                </h1>
-                <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-600 sm:text-xl dark:text-zinc-400">
+                <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">{name}</h1>
+                <p className="mt-5 font-serif text-xl leading-relaxed text-dim sm:text-2xl">
                   {profile.data?.headline}
                 </p>
               </>
             )}
-
-            <div className="mt-9 flex flex-wrap items-center gap-3">
-              <ButtonLink to="/blog">Read the blog</ButtonLink>
-              <ButtonLink to="/about" variant="secondary">
-                About &amp; career
-              </ButtonLink>
-              <div className="ml-1 flex items-center gap-1">
-                {profile.data?.social.github && (
-                  <a
-                    href={profile.data.social.github}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="GitHub"
-                    className="grid size-10 place-items-center rounded-full text-zinc-500 transition hover:bg-zinc-900/5 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-white"
-                  >
-                    <GitHubIcon className="size-5" />
-                  </a>
-                )}
-                {profile.data?.social.linkedin && (
-                  <a
-                    href={profile.data.social.linkedin}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="LinkedIn"
-                    className="grid size-10 place-items-center rounded-full text-zinc-500 transition hover:bg-zinc-900/5 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-white"
-                  >
-                    <LinkedInIcon className="size-4.5" />
-                  </a>
-                )}
-              </div>
-            </div>
           </div>
+          <Portrait name={name} />
+        </div>
 
-          {/* Decorative: sits behind the text on small screens, beside it on large ones. */}
-          <div className="pointer-events-none absolute -right-24 -top-10 w-[34rem] opacity-25 sm:opacity-50 lg:pointer-events-auto lg:relative lg:top-0 lg:right-0 lg:w-full lg:opacity-100">
-            <HeroArt className="w-full" />
-          </div>
-        </Container>
-      </section>
+        <div className="mt-12">
+          <YamlBlock title={`kubectl get engineer ${k8sName} -o yaml`}>
+            <Line>
+              <K>apiVersion</K>
+              <V>people.graniero.dev/v1</V>
+            </Line>
+            <Line>
+              <K>kind</K>
+              <V>Engineer</V>
+            </Line>
+            <Line>
+              <K>metadata</K>
+            </Line>
+            <Line level={1}>
+              <K>name</K>
+              <V>{k8sName}</V>
+            </Line>
+            <Line level={1}>
+              <K>labels</K>
+            </Line>
+            <Line level={2}>
+              <K>location</K>
+              <V>
+                {(profile.data?.location ?? 'remote')
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, '-')
+                  .replace(/^-|-$/g, '')}
+              </V>
+            </Line>
+            <Line>
+              <K>spec</K>
+            </Line>
+            <Line level={1}>
+              <K>employer</K>
+              <V>{SITE.employer}</V>
+            </Line>
+            <Line level={1}>
+              <K>focus</K>
+              <Seq items={SITE.focus} />
+            </Line>
+            <Line level={1}>
+              <K>languages</K>
+              <Seq items={SITE.languages} />
+            </Line>
+            <Line>
+              <K>status</K>
+            </Line>
+            <Line level={1}>
+              <K>conditions</K>
+            </Line>
+            <Line level={1}>
+              <Dash />
+              <K>type</K>
+              <V>Writing</V>
+            </Line>
+            <Line level={2}>
+              <K>status</K>
+              <V str>True</V>
+            </Line>
+            {latest && (
+              <Line level={2}>
+                <K>message</K>
+                <Link
+                  to={`/blog/${latest.slug}`}
+                  className="text-signal underline-offset-4 hover:underline"
+                >
+                  {latest.title}
+                </Link>
+              </Line>
+            )}
+            <Line level={1}>
+              <Dash />
+              <K>type</K>
+              <V>Building</V>
+            </Line>
+            <Line level={2}>
+              <K>status</K>
+              <V str>True</V>
+            </Line>
+            {building && (
+              <Line level={2}>
+                <K>message</K>
+                <Link to="/projects" className="text-signal underline-offset-4 hover:underline">
+                  {building.name}
+                </Link>{' '}
+                <Comment>see /projects</Comment>
+              </Line>
+            )}
+          </YamlBlock>
+        </div>
+      </Container>
 
-      <Container className="space-y-24 py-12">
+      <Container className="mt-20 space-y-20">
         <section aria-labelledby="recent-posts">
-          <SectionHeading eyebrow="// writing" action={<ArrowLink to="/blog">All posts</ArrowLink>}>
-            <span id="recent-posts">Recent posts</span>
+          <SectionHeading
+            command="kubectl get posts --sort-by=.metadata.creationTimestamp"
+            action={<ArrowLink to="/blog">all posts</ArrowLink>}
+          >
+            <span id="recent-posts">Recent writing</span>
           </SectionHeading>
           {posts.isPending ? (
-            <div className="grid gap-6 md:grid-cols-3">
-              {[0, 1, 2].map((i) => (
-                <PostCardSkeleton key={i} layout="tile" />
-              ))}
-            </div>
+            <PostsTableSkeleton />
           ) : posts.isError ? (
             <ErrorState error={posts.error} onRetry={() => void posts.refetch()} />
           ) : (
-            <div className="grid gap-6 md:grid-cols-3">
-              {posts.data.items.map((p) => (
-                <PostCard key={p.id} post={p} layout="tile" />
-              ))}
-            </div>
+            <PostsTable posts={posts.data.items} />
           )}
         </section>
 
         <section aria-labelledby="featured-projects">
           <SectionHeading
-            eyebrow="// building"
-            action={<ArrowLink to="/projects">All projects</ArrowLink>}
+            command="kubectl get projects -l featured=true"
+            action={<ArrowLink to="/projects">all projects</ArrowLink>}
           >
-            <span id="featured-projects">Featured projects</span>
+            <span id="featured-projects">Building</span>
           </SectionHeading>
           {projects.isPending ? (
-            <div className="grid gap-6 md:grid-cols-3">
-              {[0, 1, 2].map((i) => (
-                <Skeleton key={i} className="h-80" />
-              ))}
-            </div>
+            <PostsTableSkeleton />
           ) : projects.isError ? (
             <ErrorState error={projects.error} />
           ) : (
-            <div className="grid gap-6 md:grid-cols-3">
-              {projects.data.map((p) => (
-                <ProjectCard key={p.id} project={p} />
-              ))}
-            </div>
+            <ProjectsTable projects={projects.data} />
           )}
         </section>
       </Container>

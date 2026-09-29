@@ -38,8 +38,8 @@ export function LoginPage() {
   const { errors } = form.formState;
   return (
     <div className="mx-auto max-w-sm px-5 py-20">
-      <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Sign in</h1>
-      <p className="mt-2 text-sm text-zinc-500">Admin access for managing posts and profile.</p>
+      <h1 className="text-2xl font-bold tracking-tight text-ink">Sign in</h1>
+      <p className="mt-2 text-sm text-faint">Admin access for managing posts and profile.</p>
       <form
         className="mt-8 space-y-4"
         noValidate
@@ -52,10 +52,7 @@ export function LoginPage() {
           <input type="password" autoComplete="current-password" {...form.register('password')} />
         </FormField>
         {login.isError && (
-          <p
-            role="alert"
-            className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
-          >
+          <p role="alert" className="bg-err px-3 py-2 text-sm text-err">
             {login.error instanceof ApiError && login.error.status === 429
               ? 'Too many attempts. Wait a minute and try again.'
               : login.error.message}

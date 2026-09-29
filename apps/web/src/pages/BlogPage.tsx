@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router';
 import { Pagination } from '../components/Pagination.tsx';
-import { PostCard, PostCardSkeleton } from '../components/PostCard.tsx';
+import { PostsTable, PostsTableSkeleton } from '../components/PostsTable.tsx';
 import { Seo } from '../components/Seo.tsx';
 import { TagLink } from '../components/TagLink.tsx';
-import { Container, EmptyState, ErrorState, PageHeader } from '../components/ui.tsx';
+import { Container, EmptyState, ErrorState, Kbd, PageHeader } from '../components/ui.tsx';
 import { useDebouncedValue } from '../lib/hooks.ts';
+import { FOCUS_SEARCH_EVENT } from '../lib/hotkeys.ts';
 import { queries } from '../lib/queries.ts';
 
 const PAGE_SIZE = 10;
@@ -48,6 +49,16 @@ export function BlogPage() {
   const tags = useQuery(queries.tags());
   const activeTag = tags.data?.find((t) => t.slug === tag);
 
+  // `/` focuses search: via an event when already here, or router state on arrival.
+  const searchRef = useRef<HTMLInputElement>(null);
+  const location = useLocation();
+  useEffect(() => {
+    const focus = () => searchRef.current?.focus();
+    if ((location.state as { focusSearch?: boolean } | null)?.focusSearch) focus();
+    window.addEventListener(FOCUS_SEARCH_EVENT, focus);
+    return () => window.removeEventListener(FOCUS_SEARCH_EVENT, focus);
+  }, [location.state]);
+
   const goToPage = (p: number) => {
     setParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -59,79 +70,74 @@ export function BlogPage() {
   };
 
   return (
-    <Container className="py-16 sm:py-20">
+    <Container className="py-14 sm:py-20">
       <Seo
         title="Blog"
         description="Notes on software engineering, infrastructure and building things."
       />
-      <PageHeader eyebrow="// blog" title="Writing">
-        Notes on software engineering, infrastructure, and things I&apos;ve learned building them.
+      <PageHeader command="kubectl get posts" title="Writing">
+        Notes on Kubernetes, AWS and backend systems, and what I&apos;ve learned building them.
       </PageHeader>
 
-      <div className="mt-10 flex flex-col gap-4">
-        <label className="relative block max-w-md">
-          <span className="sr-only">Search posts</span>
-          <svg
-            viewBox="0 0 24 24"
-            className="pointer-events-none absolute left-4 top-1/2 z-10 size-4 -translate-y-1/2 text-zinc-400"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            aria-hidden
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search posts…"
-            className="w-full rounded-full border border-zinc-300/80 bg-white/70 py-2.5 pl-10 pr-4 text-sm backdrop-blur placeholder:text-zinc-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15 dark:border-white/10 dark:bg-white/[0.04] dark:placeholder:text-zinc-500"
-          />
-        </label>
+      {/* The filter bar reads as the command that produces the list below. */}
+      <div className="mt-10 border border-line bg-panel">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 px-4 py-3 text-sm">
+          <span className="text-signal">$</span>
+          <span className="text-dim">kubectl get posts</span>
+          {activeTag && (
+            <Link
+              to="/blog"
+              className="border border-signal px-1.5 py-0.5 text-xs text-signal hover:bg-signal hover:text-signal-ink"
+              aria-label={`Clear tag filter ${activeTag.slug}`}
+            >
+              -l tag={activeTag.slug} ×
+            </Link>
+          )}
+          <span className="text-dim">| grep -i</span>
+          <label className="flex min-w-40 flex-1 items-center">
+            <span className="sr-only">Search posts</span>
+            <input
+              ref={searchRef}
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="search…"
+              className="w-full border-b border-dashed border-line bg-transparent py-0.5 text-sm text-ink placeholder:text-faint focus:border-signal focus:outline-none"
+            />
+          </label>
+          <span className="hidden sm:inline">
+            <Kbd>/</Kbd>
+          </span>
+        </div>
         {tags.data && tags.data.length > 0 && (
-          <ul className="flex flex-wrap gap-2" aria-label="Filter by tag">
-            {tags.data.map((t) => (
-              <li key={t.slug}>
-                <TagLink tag={t} count={t.postCount} active={t.slug === tag} />
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-line px-4 py-3">
+            <span className="mr-1 text-[11px] text-faint">labels:</span>
+            <ul className="flex flex-wrap gap-1.5" aria-label="Filter by tag">
+              {tags.data.map((t) => (
+                <li key={t.slug}>
+                  <TagLink tag={t} count={t.postCount} active={t.slug === tag} />
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 
-      <div className="mt-10" aria-live="polite" aria-busy={posts.isFetching}>
-        {(tag || q) && posts.data && (
-          <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-            {posts.data.total} {posts.data.total === 1 ? 'post' : 'posts'}
-            {activeTag && (
-              <>
-                {' '}
-                tagged{' '}
-                <strong className="text-zinc-800 dark:text-zinc-200">#{activeTag.name}</strong>
-              </>
-            )}
-            {q && (
-              <>
-                {' '}
-                matching{' '}
-                <strong className="text-zinc-800 dark:text-zinc-200">&ldquo;{q}&rdquo;</strong>
-              </>
-            )}
+      <div className="mt-8" aria-live="polite" aria-busy={posts.isFetching}>
+        {posts.data && posts.data.items.length > 0 && (
+          <p className="mb-3 text-[11px] text-faint">
+            {posts.data.total} {posts.data.total === 1 ? 'resource' : 'resources'}
+            {activeTag && <> with label tag={activeTag.slug}</>}
+            {q && <> matching &ldquo;{q}&rdquo;</>}
           </p>
         )}
         {posts.isPending ? (
-          <div className="space-y-6">
-            {Array.from({ length: 3 }, (_, i) => (
-              <PostCardSkeleton key={i} />
-            ))}
-          </div>
+          <PostsTableSkeleton rows={4} />
         ) : posts.isError ? (
           <ErrorState error={posts.error} onRetry={() => void posts.refetch()} />
         ) : posts.data.items.length === 0 ? (
           <EmptyState title="No posts found">
-            Try a different search or clear the tag filter.
+            Try a different search or clear the label filter.
           </EmptyState>
         ) : (
           <div
@@ -139,11 +145,7 @@ export function BlogPage() {
               posts.isPlaceholderData ? 'opacity-60 transition-opacity' : 'transition-opacity'
             }
           >
-            <div className="flex flex-col gap-4">
-              {posts.data.items.map((p) => (
-                <PostCard key={p.id} post={p} />
-              ))}
-            </div>
+            <PostsTable posts={posts.data.items} />
             <Pagination
               page={posts.data.page}
               totalPages={posts.data.totalPages}

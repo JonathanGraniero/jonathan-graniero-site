@@ -1,26 +1,30 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Skill, SkillCategory } from '@site/shared';
-import { CoverArt } from '../components/art/CoverArt.tsx';
+import type { ReactNode } from 'react';
 import { Markdown } from '../components/Markdown.tsx';
+import { Portrait } from '../components/Portrait.tsx';
 import { Seo } from '../components/Seo.tsx';
 import {
   Badge,
   ButtonLink,
   Container,
   ErrorState,
+  PageHeader,
   SectionHeading,
   Skeleton,
+  Status,
 } from '../components/ui.tsx';
 import { formatRange } from '../lib/format.ts';
 import { queries, useProfile } from '../lib/queries.ts';
+import { SITE } from '../lib/site.ts';
 
 const CATEGORY_LABELS: Record<SkillCategory, string> = {
-  LANGUAGE: 'Languages',
-  FRONTEND: 'Frontend',
-  BACKEND: 'Backend',
-  DATA: 'Data',
-  INFRA: 'Infrastructure',
-  TOOLING: 'Tooling',
+  LANGUAGE: 'languages',
+  FRONTEND: 'frontend',
+  BACKEND: 'backend',
+  DATA: 'data',
+  INFRA: 'infrastructure',
+  TOOLING: 'tooling',
 };
 
 function groupSkills(skills: Skill[]) {
@@ -29,22 +33,34 @@ function groupSkills(skills: Skill[]) {
   return [...groups];
 }
 
+const external = { target: '_blank', rel: 'noopener noreferrer' } as const;
+const strip = (url: string) => url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-faint">{label}:</dt>
+      <dd className="min-w-0 break-words">{children}</dd>
+    </>
+  );
+}
+
 export function AboutPage() {
   const profile = useProfile();
   const experience = useQuery(queries.experience());
   const skills = useQuery(queries.skills());
+  const name = profile.data?.name ?? 'Jonathan Graniero';
+  const k8sName = name.toLowerCase().replace(/\s+/g, '-');
 
   return (
-    <Container className="py-16 sm:py-20">
+    <Container className="py-14 sm:py-20">
       <Seo title="About" description={profile.data?.headline} />
-      <div className="grid gap-12 lg:grid-cols-[2fr_1fr]">
-        <section className="animate-fade-up">
-          <p className="eyebrow">// about</p>
-          <h1 className="text-gradient mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-            About me
-          </h1>
+      <PageHeader command={`kubectl describe engineer ${k8sName}`} title="About" />
+
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <section>
           {profile.isPending ? (
-            <div className="mt-6 space-y-3">
+            <div className="space-y-3">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-5/6" />
               <Skeleton className="h-4 w-4/6" />
@@ -53,13 +69,13 @@ export function AboutPage() {
             <ErrorState error={profile.error} onRetry={() => void profile.refetch()} />
           ) : (
             <>
-              <Markdown className="mt-6 prose-lg">{profile.data.bio}</Markdown>
+              <Markdown className="text-[1.15rem]">{profile.data.bio}</Markdown>
               <div className="mt-8 flex flex-wrap gap-3">
                 {profile.data.resumeUrl && (
                   <a
                     href={profile.data.resumeUrl}
-                    className="inline-flex items-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-medium text-white hover:bg-accent-800 dark:bg-accent-500 dark:text-zinc-950"
                     download
+                    className="inline-flex items-center border border-signal bg-signal px-4 py-2 text-xs font-medium tracking-wider text-signal-ink uppercase"
                   >
                     Download résumé
                   </a>
@@ -72,95 +88,99 @@ export function AboutPage() {
           )}
         </section>
 
-        <aside className="glass self-start overflow-hidden">
-          <div className="relative aspect-[2/1]">
-            {profile.data?.avatarUrl ? (
-              <img src={profile.data.avatarUrl} alt="" className="size-full object-cover" />
-            ) : (
-              <CoverArt seed={profile.data?.name ?? 'profile'} className="size-full" />
+        <aside className="self-start border border-line bg-panel">
+          <div className="flex gap-4 border-b border-line p-5">
+            <Portrait name={name} className="w-24! sm:w-28!" />
+            <div className="min-w-0 text-xs">
+              <p className="font-semibold text-ink">{name}</p>
+              <p className="mt-1 text-faint">engineer/{k8sName}</p>
+              <p className="mt-3">
+                <Status>Ready</Status>
+              </p>
+            </div>
+          </div>
+          <dl className="grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-2.5 p-5 text-xs">
+            <Field label="Location">{profile.data?.location ?? '—'}</Field>
+            <Field label="Employer">{SITE.employer}</Field>
+            <Field label="Education">{SITE.education}</Field>
+            {profile.data?.social.github && (
+              <Field label="GitHub">
+                <a
+                  href={profile.data.social.github}
+                  {...external}
+                  className="text-signal hover:underline"
+                >
+                  {strip(profile.data.social.github)}
+                </a>
+              </Field>
             )}
-          </div>
-          <div className="p-6">
-            <dl className="space-y-4 text-sm">
-              <div>
-                <dt className="text-zinc-500">Based in</dt>
-                <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">
-                  {profile.data?.location ?? '—'}
-                </dd>
-              </div>
-              {profile.data?.social.email && (
-                <div>
-                  <dt className="text-zinc-500">Email</dt>
-                  <dd className="mt-0.5">
-                    <a
-                      href={`mailto:${profile.data.social.email}`}
-                      className="font-medium text-accent-700 hover:underline dark:text-accent-400"
-                    >
-                      {profile.data.social.email}
-                    </a>
-                  </dd>
-                </div>
-              )}
-              {profile.data?.social.github && (
-                <div>
-                  <dt className="text-zinc-500">GitHub</dt>
-                  <dd className="mt-0.5">
-                    <a
-                      href={profile.data.social.github}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-accent-700 hover:underline dark:text-accent-400"
-                    >
-                      {profile.data.social.github.replace(/^https?:\/\/(www\.)?/, '')}
-                    </a>
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </div>
+            {profile.data?.social.linkedin && (
+              <Field label="LinkedIn">
+                <a
+                  href={profile.data.social.linkedin}
+                  {...external}
+                  className="text-signal hover:underline"
+                >
+                  {strip(profile.data.social.linkedin).replace('linkedin.com', 'in')}
+                </a>
+              </Field>
+            )}
+            {profile.data?.social.email && (
+              <Field label="Email">
+                <a
+                  href={`mailto:${profile.data.social.email}`}
+                  className="text-signal hover:underline"
+                >
+                  {profile.data.social.email}
+                </a>
+              </Field>
+            )}
+          </dl>
         </aside>
       </div>
 
       {/* Hidden until there's work history to show. */}
       {!(experience.isSuccess && experience.data.length === 0) && (
         <section className="mt-20" aria-labelledby="experience">
-          <SectionHeading eyebrow="// career">
+          <SectionHeading command={`kubectl rollout history engineer/${k8sName}`}>
             <span id="experience">Experience</span>
           </SectionHeading>
           {experience.isPending ? (
-            <Skeleton className="h-48" />
+            <Skeleton className="h-40" />
           ) : experience.isError ? (
             <ErrorState error={experience.error} />
           ) : (
-            <ol className="relative space-y-10 border-l border-zinc-200 pl-8 dark:border-zinc-800">
-              {experience.data.map((job) => (
-                <li key={job.id} className="relative">
-                  <span
-                    aria-hidden
-                    className={`absolute -left-[37px] top-1.5 size-3 rounded-full ring-4 ring-white dark:ring-zinc-950 ${job.endDate ? 'bg-zinc-300 dark:bg-zinc-600' : 'bg-accent-500'}`}
-                  />
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">
-                      {job.role} <span className="font-normal text-zinc-500">· {job.company}</span>
-                    </h3>
-                    <p className="font-mono text-xs text-zinc-500">
-                      {formatRange(job.startDate, job.endDate)}
-                    </p>
+            <ol className="text-sm">
+              {experience.data.map((job, i) => (
+                <li
+                  key={job.id}
+                  className="grid gap-3 border-t border-line py-6 md:grid-cols-[4rem_1fr]"
+                >
+                  <span className="text-xs text-faint">rev {experience.data.length - i}</span>
+                  <div>
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h3 className="font-semibold">
+                        {job.role} <span className="text-dim">@ {job.company}</span>
+                      </h3>
+                      <span className="text-xs text-faint">
+                        {formatRange(job.startDate, job.endDate)}
+                      </span>
+                    </div>
+                    <p className="mt-2 font-serif text-base text-dim">{job.summary}</p>
+                    <ul className="mt-3 space-y-1 font-serif text-[15px] text-dim">
+                      {job.highlights.map((h) => (
+                        <li key={h} className="flex gap-2">
+                          <span className="text-signal">›</span>
+                          {h}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {job.tech.map((t) => (
+                        <Badge key={t}>{t}</Badge>
+                      ))}
+                    </div>
                   </div>
-                  {job.location && <p className="text-sm text-zinc-500">{job.location}</p>}
-                  <p className="mt-2 text-zinc-600 dark:text-zinc-400">{job.summary}</p>
-                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-zinc-600 marker:text-accent-500 dark:text-zinc-400">
-                    {job.highlights.map((h) => (
-                      <li key={h}>{h}</li>
-                    ))}
-                  </ul>
-                  <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Technologies">
-                    {job.tech.map((t) => (
-                      <li key={t}>
-                        <Badge>{t}</Badge>
-                      </li>
-                    ))}
-                  </ul>
                 </li>
               ))}
             </ol>
@@ -169,31 +189,29 @@ export function AboutPage() {
       )}
 
       <section className="mt-20" aria-labelledby="skills">
-        <SectionHeading eyebrow="// toolbox">
-          <span id="skills">Skills</span>
+        <SectionHeading command="kubectl api-resources --namespaced=false">
+          <span id="skills">Toolbox</span>
         </SectionHeading>
         {skills.isPending ? (
           <Skeleton className="h-40" />
         ) : skills.isError ? (
           <ErrorState error={skills.error} />
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <dl className="text-sm">
             {groupSkills(skills.data).map(([category, items]) => (
-              <div key={category} className="glass-interactive p-6">
-                <h3 className="eyebrow">{CATEGORY_LABELS[category]}</h3>
-                <ul className="mt-4 flex flex-wrap gap-2">
+              <div
+                key={category}
+                className="grid gap-2 border-t border-line py-4 md:grid-cols-[10rem_1fr]"
+              >
+                <dt className="text-xs text-faint uppercase">{CATEGORY_LABELS[category]}</dt>
+                <dd className="flex flex-wrap gap-x-5 gap-y-1">
                   {items.map((s) => (
-                    <li
-                      key={s.id}
-                      className="rounded-full border border-zinc-200 bg-white/70 px-3 py-1 text-sm text-zinc-800 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200"
-                    >
-                      {s.name}
-                    </li>
+                    <span key={s.id}>{s.name}</span>
                   ))}
-                </ul>
+                </dd>
               </div>
             ))}
-          </div>
+          </dl>
         )}
       </section>
     </Container>

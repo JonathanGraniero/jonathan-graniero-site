@@ -47,7 +47,7 @@ async function seedProfile() {
 Lately that means building [kflare](/blog/building-kflare-kubernetes-operator-for-cloudflare), a Kubernetes operator for Cloudflare, and contributing to [AWS Controllers for Kubernetes](/blog/adding-a-database-resource-to-the-ack-glue-controller) (ACK), where I'm adding Data Catalog support to the Glue controller.
 
 I write mostly Go and Python, and TypeScript when there's an API or UI to build. This site is where I write up what I learn along the way.`,
-      location: 'Remote',
+      location: 'Cambridge, MA',
       github: 'https://github.com/JonathanGraniero',
       linkedin: 'https://www.linkedin.com/in/jonathangraniero/',
       email: null,
@@ -68,6 +68,7 @@ const skills: Prisma.SkillCreateManyInput[] = [
   { name: 'Go', category: 'LANGUAGE', level: 3 },
   { name: 'Python', category: 'LANGUAGE', level: 3 },
   { name: 'TypeScript', category: 'LANGUAGE', level: 3 },
+  { name: 'Java', category: 'LANGUAGE', level: 3 },
   { name: 'SQL', category: 'LANGUAGE', level: 3 },
   { name: 'React', category: 'FRONTEND', level: 3 },
   { name: 'NestJS', category: 'BACKEND', level: 3 },

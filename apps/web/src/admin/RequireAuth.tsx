@@ -11,7 +11,7 @@ export function RequireAuth() {
   if (me.isPending) {
     return (
       <div className="grid place-items-center py-32" role="status" aria-label="Checking session">
-        <span className="size-6 animate-spin rounded-full border-2 border-zinc-300 border-t-accent-600" />
+        <span className="size-6 animate-spin rounded-full border-2 border-line border-t-signal" />
       </div>
     );
   }

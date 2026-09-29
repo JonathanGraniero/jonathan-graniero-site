@@ -30,17 +30,17 @@ export function TagInput({ value, onChange, suggestions = [], max = 10 }: TagInp
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 focus-within:border-accent-500 focus-within:ring-2 focus-within:ring-accent-500/30 dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="flex flex-wrap items-center gap-1.5 border border-line bg-panel px-2 py-1.5 focus-within:border-signal focus-within:ring-2 focus-within:ring-signal/30">
       {value.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 rounded-md bg-zinc-100 py-0.5 pl-2 pr-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+          className="inline-flex items-center gap-1 bg-line/40 py-0.5 pl-2 pr-1 text-xs font-medium text-dim"
         >
           {tag}
           <button
             type="button"
             onClick={() => onChange(value.filter((t) => t !== tag))}
-            className="rounded px-1 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+            className="px-1 text-faint hover:bg-line/40 hover:text-dim"
             aria-label={`Remove tag ${tag}`}
           >
             ×
@@ -56,7 +56,7 @@ export function TagInput({ value, onChange, suggestions = [], max = 10 }: TagInp
         placeholder={value.length >= max ? `Max ${max} tags` : 'Add tag…'}
         disabled={value.length >= max}
         aria-label="Add tag"
-        className="min-w-24 flex-1 bg-transparent px-1 py-0.5 text-sm outline-none placeholder:text-zinc-400"
+        className="min-w-24 flex-1 bg-transparent px-1 py-0.5 text-sm outline-none placeholder:text-faint"
       />
       <datalist id={listId}>
         {suggestions

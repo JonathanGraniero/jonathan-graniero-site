@@ -10,10 +10,10 @@ describe('ContactPage', () => {
     server.use(http.post('/api/contact', () => ((submitted = true), HttpResponse.json({}))));
     const { user } = renderRoute('/contact');
 
-    await user.click(await screen.findByRole('button', { name: 'Send message' }));
+    await user.click(await screen.findByRole('button', { name: /kubectl apply/ }));
 
-    expect(await screen.findByText('Please enter your name')).toBeInTheDocument();
-    expect(screen.getByText('Please enter a valid email address')).toBeInTheDocument();
+    expect(await screen.findByText(/Please enter your name/)).toBeInTheDocument();
+    expect(screen.getByText(/Please enter a valid email address/)).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true');
     expect(submitted).toBe(false);
   });
@@ -31,7 +31,7 @@ describe('ContactPage', () => {
     await user.type(await screen.findByLabelText('Name'), 'Ada Lovelace');
     await user.type(screen.getByLabelText('Email'), 'ada@example.com');
     await user.type(screen.getByLabelText('Message'), 'Loved the post on reconcile loops!');
-    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    await user.click(screen.getByRole('button', { name: /kubectl apply/ }));
 
     expect(await screen.findByRole('status')).toHaveTextContent('your message is on its way');
     expect(body).toMatchObject({ name: 'Ada Lovelace', email: 'ada@example.com', website: '' });
@@ -46,7 +46,7 @@ describe('ContactPage', () => {
     await user.type(await screen.findByLabelText('Name'), 'Ada');
     await user.type(screen.getByLabelText('Email'), 'ada@example.com');
     await user.type(screen.getByLabelText('Message'), 'Hello there again!');
-    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    await user.click(screen.getByRole('button', { name: /kubectl apply/ }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/try again in a little while/);
   });

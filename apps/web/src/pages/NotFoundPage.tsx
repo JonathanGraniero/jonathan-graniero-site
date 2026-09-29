@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router';
 import { Seo } from '../components/Seo.tsx';
 import { ButtonLink, Container } from '../components/ui.tsx';
 
@@ -6,20 +7,24 @@ export function NotFoundPage({
 }: {
   message?: string;
 }) {
+  const { pathname } = useLocation();
   return (
-    <Container className="flex flex-col items-center py-28 text-center">
+    <Container className="py-24">
       <Seo title="Not found" />
-      <p className="text-gradient-accent font-mono text-7xl font-semibold tracking-tight sm:text-8xl">
-        404
-      </p>
-      <h1 className="mt-4 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white">
-        Page not found
-      </h1>
-      <p className="mt-3 text-zinc-600 dark:text-zinc-400">{message}</p>
+      <div className="max-w-2xl border border-line bg-panel p-6 font-code text-sm">
+        <p>
+          <span className="text-signal">$</span> kubectl get page {pathname}
+        </p>
+        <p className="mt-2 text-err">
+          Error from server (NotFound): pages &quot;{pathname}&quot; not found
+        </p>
+      </div>
+      <h1 className="mt-10 text-2xl font-semibold">Page not found</h1>
+      <p className="mt-3 font-serif text-lg text-dim">{message}</p>
       <div className="mt-8 flex gap-3">
-        <ButtonLink to="/">Go home</ButtonLink>
+        <ButtonLink to="/">cd ~</ButtonLink>
         <ButtonLink to="/blog" variant="secondary">
-          Browse the blog
+          ls blog/
         </ButtonLink>
       </div>
     </Container>

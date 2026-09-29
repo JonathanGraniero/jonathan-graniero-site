@@ -82,29 +82,22 @@ function ProfileForm({ profile }: { profile: Profile }) {
     <Container className="max-w-3xl py-10">
       <form noValidate onSubmit={form.handleSubmit((v) => save.mutate(v))} className="space-y-6">
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Profile
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Profile</h1>
           <div className="flex items-center gap-3">
-            {!isDirty && save.isSuccess && (
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">Saved</span>
-            )}
+            {!isDirty && save.isSuccess && <span className="text-xs text-ok">Saved</span>}
             <Button type="submit" disabled={!isDirty || save.isPending}>
               {save.isPending ? 'Saving…' : 'Save changes'}
             </Button>
           </div>
         </div>
         {save.isError && (
-          <p
-            role="alert"
-            className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
-          >
+          <p role="alert" className="bg-err px-4 py-2 text-sm text-err">
             {save.error.message}
           </p>
         )}
 
-        <fieldset className="grid gap-4 rounded-xl border border-zinc-200 bg-white p-6 sm:grid-cols-2 dark:border-zinc-800 dark:bg-zinc-900">
-          <legend className="px-1 text-sm font-semibold text-zinc-500">Basics</legend>
+        <fieldset className="grid gap-4 border border-line bg-panel p-6 sm:grid-cols-2">
+          <legend className="px-1 text-sm font-semibold text-faint">Basics</legend>
           <FormField label="Name" error={errors.name?.message}>
             <input {...form.register('name')} />
           </FormField>
@@ -122,19 +115,19 @@ function ProfileForm({ profile }: { profile: Profile }) {
           </div>
           <div className="sm:col-span-2">
             <div className="mb-1.5 flex items-center justify-between">
-              <label htmlFor="bio" className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+              <label htmlFor="bio" className="text-sm font-medium text-ink">
                 Bio (markdown)
               </label>
               <button
                 type="button"
                 onClick={() => setPreviewBio((p) => !p)}
-                className="text-xs font-medium text-accent-700 hover:underline dark:text-accent-400"
+                className="text-xs font-medium text-signal hover:underline"
               >
                 {previewBio ? 'Edit' : 'Preview'}
               </button>
             </div>
             {previewBio ? (
-              <div className="min-h-40 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+              <div className="min-h-40 border border-line p-4">
                 <Markdown>{bio}</Markdown>
               </div>
             ) : (
@@ -142,14 +135,14 @@ function ProfileForm({ profile }: { profile: Profile }) {
                 id="bio"
                 rows={8}
                 {...form.register('bio')}
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30 dark:border-zinc-700 dark:bg-zinc-900"
+                className="w-full border border-line bg-panel px-3 py-2 font-mono text-sm focus:border-signal focus:outline-none focus:ring-2 focus:ring-signal/30"
               />
             )}
           </div>
         </fieldset>
 
-        <fieldset className="grid gap-4 rounded-xl border border-zinc-200 bg-white p-6 sm:grid-cols-2 dark:border-zinc-800 dark:bg-zinc-900">
-          <legend className="px-1 text-sm font-semibold text-zinc-500">Links</legend>
+        <fieldset className="grid gap-4 border border-line bg-panel p-6 sm:grid-cols-2">
+          <legend className="px-1 text-sm font-semibold text-faint">Links</legend>
           <FormField label="Public email" error={errors.email?.message}>
             <input type="email" {...form.register('email')} />
           </FormField>

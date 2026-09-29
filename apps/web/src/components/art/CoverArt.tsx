@@ -1,14 +1,17 @@
 import clsx from 'clsx';
 import { memo, useId, useMemo, type ReactNode } from 'react';
-import {
-  createRng,
-  hashString,
-  nearestEdges,
-  paletteFor,
-  scatter,
-  type Palette,
-  type Rng,
-} from '../../lib/art.ts';
+import { createRng, hashString, nearestEdges, scatter, type Rng } from '../../lib/art.ts';
+
+/**
+ * Colours come from the theme, so art is monochrome line work in the site's
+ * single signal colour on the panel background, in both light and dark mode.
+ */
+interface Palette {
+  a: string;
+  b: string;
+  bg: string;
+}
+const THEME: Palette = { a: 'var(--signal)', b: 'var(--dim)', bg: 'var(--panel)' };
 
 const W = 800;
 const H = 400;
@@ -127,9 +130,10 @@ const blocks: Motif = (rng, p) => {
           y={r * (size + gap) + 6}
           width={size}
           height={size}
-          rx="7"
-          fill={v > 0.82 ? p.a : v > 0.6 ? p.b : 'white'}
-          opacity={(v > 0.6 ? 0.85 : 0.05) * fade}
+          fill={v > 0.82 ? p.a : v > 0.6 ? p.b : 'none'}
+          stroke={v > 0.6 ? 'none' : p.b}
+          strokeOpacity="0.25"
+          opacity={(v > 0.82 ? 0.9 : 0.55) * fade}
         />,
       );
     }
@@ -205,17 +209,16 @@ interface CoverArtProps {
 }
 
 /**
- * Deterministic generative cover image. Always dark, so it pops on both
- * light and dark pages, and it scales crisply to any size.
+ * Deterministic generative cover image, drawn like a schematic plate:
+ * theme-coloured line work over a fine grid with registration marks.
  */
 export const CoverArt = memo(function CoverArt({ seed, className, label }: CoverArtProps) {
   const id = useId().replace(/:/g, '');
-  const { palette, motif } = useMemo(() => {
-    const rng = createRng(seed);
-    const palette = paletteFor(seed);
-    const motif = MOTIFS[hashString(`${seed}${MOTIF_SALT}`) % MOTIFS.length]!(rng, palette, id);
-    return { palette, motif };
-  }, [seed, id]);
+  const motif = useMemo(
+    () => MOTIFS[hashString(`${seed}${MOTIF_SALT}`) % MOTIFS.length]!(createRng(seed), THEME, id),
+    [seed, id],
+  );
+  const mark = (x: number, y: number) => `M${x - 12},${y} H${x + 12} M${x},${y - 12} V${y + 12}`;
 
   return (
     <svg
@@ -225,28 +228,23 @@ export const CoverArt = memo(function CoverArt({ seed, className, label }: Cover
       aria-hidden
     >
       <defs>
-        <radialGradient id={`${id}-bg`} cx="75%" cy="30%" r="90%">
-          <stop offset="0%" stopColor={palette.bg} />
-          <stop offset="100%" stopColor="oklch(0.14 0.01 260)" />
-        </radialGradient>
-        <radialGradient id={`${id}-glow`} cx="70%" cy="45%" r="45%">
-          <stop offset="0%" stopColor={palette.a} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={palette.a} stopOpacity="0" />
-        </radialGradient>
-        <pattern id={`${id}-dots`} width="22" height="22" patternUnits="userSpaceOnUse">
-          <circle cx="1.5" cy="1.5" r="1.2" fill="white" opacity="0.07" />
+        <pattern id={`${id}-grid`} width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M40,0 H0 V40" fill="none" stroke="var(--line)" strokeWidth="1" opacity="0.6" />
         </pattern>
       </defs>
-      <rect width={W} height={H} fill={`url(#${id}-bg)`} />
-      <rect width={W} height={H} fill={`url(#${id}-dots)`} />
-      <rect width={W} height={H} fill={`url(#${id}-glow)`} />
+      <rect width={W} height={H} fill={THEME.bg} />
+      <rect width={W} height={H} fill={`url(#${id}-grid)`} />
       {motif}
+      <path
+        d={[mark(24, 24), mark(W - 24, 24), mark(24, H - 24), mark(W - 24, H - 24)].join(' ')}
+        stroke="var(--faint)"
+        strokeWidth="1.5"
+      />
       {label && (
         <text
           x="28"
           y={H - 28}
-          fill="white"
-          fillOpacity="0.75"
+          fill="var(--dim)"
           fontFamily="var(--font-mono)"
           fontSize="22"
           letterSpacing="1"

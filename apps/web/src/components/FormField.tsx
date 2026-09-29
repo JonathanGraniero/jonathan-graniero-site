@@ -9,7 +9,7 @@ interface FormFieldProps {
 }
 
 export const inputClass =
-  'w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 dark:bg-zinc-900 dark:text-zinc-100';
+  'w-full border bg-panel px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2';
 
 /** Wires label, hint and error message to the input via ids for screen readers. */
 export function FormField({ label, error, hint, children }: FormFieldProps) {
@@ -18,10 +18,7 @@ export function FormField({ label, error, hint, children }: FormFieldProps) {
   const errorId = error ? `${id}-error` : undefined;
   return (
     <div>
-      <label
-        htmlFor={id}
-        className="mb-1.5 block text-sm font-medium text-zinc-800 dark:text-zinc-200"
-      >
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-ink">
         {label}
       </label>
       {cloneElement(children, {
@@ -31,18 +28,18 @@ export function FormField({ label, error, hint, children }: FormFieldProps) {
         className: clsx(
           inputClass,
           error
-            ? 'border-red-400 focus:border-red-500 focus:ring-red-500/30'
-            : 'border-zinc-300 focus:border-accent-500 focus:ring-accent-500/30 dark:border-zinc-700',
+            ? 'border-err focus:border-err focus:ring-err/30'
+            : 'border-line focus:border-signal focus:ring-signal/30 ',
           children.props.className as string | undefined,
         ),
       })}
       {hint && !error && (
-        <p id={hintId} className="mt-1.5 text-xs text-zinc-500">
+        <p id={hintId} className="mt-1.5 text-xs text-faint">
           {hint}
         </p>
       )}
       {error && (
-        <p id={errorId} className="mt-1.5 text-xs text-red-600 dark:text-red-400">
+        <p id={errorId} className="mt-1.5 text-xs text-err">
           {error}
         </p>
       )}
