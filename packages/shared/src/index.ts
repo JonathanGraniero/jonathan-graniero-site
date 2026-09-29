@@ -149,6 +149,33 @@ export interface ContactInput {
   website?: string;
 }
 
+/** A contact-form submission, as shown in the admin inbox. */
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  createdAt: ISODateString;
+  /** null = unread */
+  readAt: ISODateString | null;
+}
+
+export interface MessageListQuery {
+  page?: number;
+  pageSize?: number;
+  /** Only unread messages. */
+  unread?: boolean;
+}
+
+export interface MessageStats {
+  total: number;
+  unread: number;
+}
+
+export interface UpdateMessageInput {
+  read: boolean;
+}
+
 export interface ContactReceipt {
   id: string;
   receivedAt: ISODateString;

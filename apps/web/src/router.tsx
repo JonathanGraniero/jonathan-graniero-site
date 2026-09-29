@@ -68,6 +68,12 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'messages',
+            lazy: async () => ({
+              Component: (await import('./admin/MessagesPage.tsx')).MessagesPage,
+            }),
+          },
+          {
             path: 'profile',
             lazy: async () => ({
               Component: (await import('./admin/ProfileEditorPage.tsx')).ProfileEditorPage,

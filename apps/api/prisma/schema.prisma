@@ -103,7 +103,11 @@ model ContactMessage {
   message   String
   ip        String?
   userAgent String?
+  /// Set when opened in the admin inbox; null = unread.
+  readAt    DateTime?
   createdAt DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
 }
 
 model AdminUser {

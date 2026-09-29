@@ -1,5 +1,5 @@
 import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query';
-import type { PostListQuery } from '@site/shared';
+import type { MessageListQuery, PostListQuery } from '@site/shared';
 import { api } from './api.ts';
 
 /**
@@ -55,6 +55,19 @@ export const queries = {
       queryKey: ['admin', 'posts', q] as const,
       queryFn: () => api.admin.posts.list(q),
       placeholderData: keepPreviousData,
+    }),
+  adminMessages: (q: MessageListQuery = {}) =>
+    queryOptions({
+      queryKey: ['admin', 'messages', 'list', q] as const,
+      queryFn: () => api.admin.messages.list(q),
+      placeholderData: keepPreviousData,
+    }),
+  messageStats: () =>
+    queryOptions({
+      queryKey: ['admin', 'messages', 'stats'] as const,
+      queryFn: api.admin.messages.stats,
+      // Keep the nav badge fresh while the admin is open.
+      refetchInterval: 60_000,
     }),
   adminPost: (id: string) =>
     queryOptions({

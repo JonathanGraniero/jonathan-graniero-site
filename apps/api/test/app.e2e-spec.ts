@@ -250,6 +250,69 @@ describe('API (e2e)', () => {
       expect(saved?.email).toBe('visitor@example.com');
     });
   });
+
+  describe('admin inbox', () => {
+    it('requires a session', async () => {
+      await request(http).get('/api/admin/messages').expect(401);
+      await request(http).get('/api/admin/messages/stats').expect(401);
+    });
+
+    it('lists, marks read/unread and deletes messages', async () => {
+      const seeded = await prisma.contactMessage.create({
+        data: {
+          name: 'Inbox Test',
+          email: 'inbox@example.com',
+          message: 'Hi from the e2e suite',
+          ip: '198.51.100.7',
+          userAgent: 'jest',
+        },
+      });
+      const agent = request.agent(http);
+      await agent.post('/api/auth/login').send(ADMIN).expect(200);
+
+      const before = (await agent.get('/api/admin/messages/stats').expect(200)).body;
+      expect(before.unread).toBeGreaterThanOrEqual(1);
+
+      const unread = await agent.get('/api/admin/messages?unread=true').expect(200);
+      const listed = unread.body.items.find((m: { id: string }) => m.id === seeded.id);
+      expect(listed).toMatchObject({
+        name: 'Inbox Test',
+        email: 'inbox@example.com',
+        readAt: null,
+      });
+      expect(listed).not.toHaveProperty('ip'); // sender metadata stays server-side
+      expect(listed).not.toHaveProperty('userAgent');
+      expect(unread.headers['cache-control']).toBe('no-store');
+
+      const read = await agent
+        .patch(`/api/admin/messages/${seeded.id}`)
+        .send({ read: true })
+        .expect(200);
+      expect(read.body.readAt).not.toBeNull();
+      const after = (await agent.get('/api/admin/messages/stats').expect(200)).body;
+      expect(after.unread).toBe(before.unread - 1);
+      const stillUnread = await agent.get('/api/admin/messages?unread=true').expect(200);
+      expect(stillUnread.body.items.map((m: { id: string }) => m.id)).not.toContain(seeded.id);
+
+      // Re-marking read keeps the original read time.
+      const again = await agent
+        .patch(`/api/admin/messages/${seeded.id}`)
+        .send({ read: true })
+        .expect(200);
+      expect(again.body.readAt).toBe(read.body.readAt);
+
+      const unmarked = await agent
+        .patch(`/api/admin/messages/${seeded.id}`)
+        .send({ read: false })
+        .expect(200);
+      expect(unmarked.body.readAt).toBeNull();
+
+      await agent.patch(`/api/admin/messages/${seeded.id}`).send({ read: 'yes' }).expect(400);
+      await agent.delete(`/api/admin/messages/${seeded.id}`).expect(204);
+      await agent.delete(`/api/admin/messages/${seeded.id}`).expect(404);
+      await agent.patch(`/api/admin/messages/${seeded.id}`).send({ read: true }).expect(404);
+    });
+  });
 });
 
 /**

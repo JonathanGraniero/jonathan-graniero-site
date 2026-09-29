@@ -1,7 +1,9 @@
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Link, NavLink, Outlet } from 'react-router';
 import { ThemeToggle } from '../components/ThemeToggle.tsx';
 import { Container } from '../components/ui.tsx';
+import { queries } from '../lib/queries.ts';
 import { useCurrentUser, useLogout } from './useAuth.ts';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -13,6 +15,8 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 export function AdminLayout() {
   const me = useCurrentUser();
   const logout = useLogout();
+  const stats = useQuery({ ...queries.messageStats(), enabled: Boolean(me.data) });
+  const unread = stats.data?.unread ?? 0;
 
   return (
     <div className="min-h-dvh bg-line/40">
@@ -29,6 +33,17 @@ export function AdminLayout() {
               <nav aria-label="Admin" className="flex items-center gap-1">
                 <NavLink to="/admin" end className={navClass}>
                   Posts
+                </NavLink>
+                <NavLink to="/admin/messages" className={navClass}>
+                  Messages
+                  {unread > 0 && (
+                    <span
+                      className="ml-1.5 bg-signal px-1.5 py-0.5 text-[10px] font-semibold text-signal-ink"
+                      aria-label={`${unread} unread`}
+                    >
+                      {unread}
+                    </span>
+                  )}
                 </NavLink>
                 <NavLink to="/admin/profile" className={navClass}>
                   Profile

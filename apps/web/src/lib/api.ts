@@ -2,10 +2,13 @@ import type {
   ApiError as ApiErrorBody,
   AuthUser,
   ContactInput,
+  ContactMessage,
   ContactReceipt,
   CreatePostInput,
   Experience,
   LoginInput,
+  MessageListQuery,
+  MessageStats,
   Paginated,
   PostDetail,
   PostListQuery,
@@ -99,6 +102,14 @@ export const api = {
       update: (id: string, input: UpdatePostInput) =>
         http<PostDetail>(`/admin/posts/${id}`, { method: 'PATCH', body: json(input) }),
       remove: (id: string) => http<void>(`/admin/posts/${id}`, { method: 'DELETE' }),
+    },
+    messages: {
+      list: (q: MessageListQuery = {}) =>
+        http<Paginated<ContactMessage>>(`/admin/messages${toSearch(q)}`),
+      stats: () => http<MessageStats>('/admin/messages/stats'),
+      setRead: (id: string, read: boolean) =>
+        http<ContactMessage>(`/admin/messages/${id}`, { method: 'PATCH', body: json({ read }) }),
+      remove: (id: string) => http<void>(`/admin/messages/${id}`, { method: 'DELETE' }),
     },
     updateProfile: (input: UpdateProfileInput) =>
       http<Profile>('/admin/profile', { method: 'PATCH', body: json(input) }),
