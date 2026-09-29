@@ -71,10 +71,16 @@ data "aws_iam_policy_document" "github_trust" {
       values   = ["sts.amazonaws.com"]
     }
     # Only jobs in this repo's `production` environment can assume the role.
+    # GitHub now issues immutable subjects (owner/repo numeric IDs embedded,
+    # so a re-created repo with the same name can't match); the legacy
+    # name-only form is accepted too.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:environment:production"]
+      values = [
+        "${var.github_sub_prefix}:environment:production",
+        "repo:${var.github_repo}:environment:production",
+      ]
     }
   }
 }
