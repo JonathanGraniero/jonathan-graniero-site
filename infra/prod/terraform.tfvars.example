@@ -1,0 +1,3 @@
+alert_email = "you@example.com"
+# domain     = "jonathangraniero.dev"
+# enable_waf = false  # if the distribution can't be put on the CloudFront Free plan

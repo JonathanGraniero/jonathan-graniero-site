@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import type { Env } from './config/env.ts';
 import { AUTH_COOKIE } from './auth/auth.constants.ts';
+import { originVerify } from './common/middleware/origin-verify.middleware.ts';
 
 export const API_PREFIX = 'api';
 
@@ -24,6 +25,8 @@ export function configureApp(app: NestExpressApplication): void {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
   app.set('trust proxy', trustProxyValue(config.get('TRUST_PROXY', { infer: true })));
+  const originSecret = config.get('ORIGIN_VERIFY_SECRET', { infer: true });
+  if (originSecret) app.use(originVerify(originSecret));
   app.setGlobalPrefix(API_PREFIX);
   app.use(helmet());
   app.use(cookieParser());
@@ -35,6 +38,14 @@ export function configureApp(app: NestExpressApplication): void {
 }
 
 export function setupSwagger(app: NestExpressApplication): void {
+  const config = app.get<ConfigService<Env, true>>(ConfigService);
+  const enabled = config.get('SWAGGER_ENABLED', { infer: true });
+  if (
+    enabled === 'false' ||
+    (enabled === undefined && config.get('NODE_ENV', { infer: true }) === 'production')
+  ) {
+    return;
+  }
   const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()

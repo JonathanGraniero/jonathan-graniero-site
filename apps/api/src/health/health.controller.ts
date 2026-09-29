@@ -22,6 +22,12 @@ export class HealthController {
     private readonly prisma: PrismaService,
   ) {}
 
+  /** Process liveness only, no dependencies. Used by the Lambda Web Adapter's readiness probe. */
+  @Get('live')
+  live(): { status: 'ok' } {
+    return { status: 'ok' };
+  }
+
   /** Liveness + dependency check for load balancers and uptime monitors. */
   @Get()
   @HealthCheck()

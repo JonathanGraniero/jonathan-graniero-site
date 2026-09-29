@@ -112,11 +112,14 @@ The seed only **inserts** content, so anything edited through `/admin` survives 
 - **Profile and career:** placeholders in `apps/api/prisma/seed.ts`.
 - **Sample posts:** `apps/api/prisma/seed-data/posts.ts`.
 
-## Not done yet
+## Deployment
 
-Hosting is intentionally out of scope for now. The next step is:
+Production runs serverless on AWS for about **$17/yr** (just the domain):
 
-- Production Dockerfiles for the API and web apps.
-- A reverse proxy that serves the static web build and forwards `/api`, with TLS.
-- `TRUST_PROXY` set so rate limiting sees real client IPs.
-- Automated `pg_dump` backups.
+- **Web:** the React build on S3, served through CloudFront on its free flat-rate plan (CDN, TLS, WAF and DNS included).
+- **API:** runs on Lambda through the Lambda Web Adapter, so the NestJS app runs unchanged.
+- **Database:** Postgres on Neon's free tier.
+
+Infrastructure is Terraform in [`infra/`](infra/README.md), which also has the first-time setup runbook. After CI passes on `main`, [`deploy.yml`](.github/workflows/deploy.yml) ships both apps using GitHub OIDC, with no stored AWS keys. [`backup.yml`](.github/workflows/backup.yml) takes a weekly database dump.
+
+The API package is traced from `dist/main.js` by [`scripts/package-api.sh`](scripts/package-api.sh), so only files that are actually loaded ship: about 19 MB unzipped.

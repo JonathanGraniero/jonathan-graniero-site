@@ -35,6 +35,10 @@ describe('API (e2e)', () => {
   });
 
   describe('public content', () => {
+    it('GET /api/health/live answers without touching the database', async () => {
+      await request(http).get('/api/health/live').expect(200, { status: 'ok' });
+    });
+
     it('GET /api/health reports the database as up', async () => {
       const res = await request(http).get('/api/health').expect(200);
       expect(res.body.info.database.status).toBe('up');

@@ -1,0 +1,27 @@
+// CloudFront Function (viewer request) for the SPA behaviour.
+function handler(event) {
+  var request = event.request;
+  var host = request.headers.host ? request.headers.host.value : '';
+
+  // www → apex, preserving path and query.
+  if (host === '${www}') {
+    var qs = Object.keys(request.querystring)
+      .map(function (k) {
+        var v = request.querystring[k];
+        return v.value ? k + '=' + v.value : k;
+      })
+      .join('&');
+    return {
+      statusCode: 301,
+      statusDescription: 'Moved Permanently',
+      headers: { location: { value: 'https://${apex}' + request.uri + (qs ? '?' + qs : '') } },
+    };
+  }
+
+  // Client-side routes (no file extension) get the SPA shell.
+  var last = request.uri.split('/').pop();
+  if (last.indexOf('.') === -1) {
+    request.uri = '/index.html';
+  }
+  return request;
+}

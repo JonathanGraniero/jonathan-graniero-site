@@ -14,6 +14,15 @@ export const envSchema = z.object({
   JWT_TTL_SECONDS: z.coerce.number().int().positive().default(86_400),
   /** Express "trust proxy" setting; set when running behind a reverse proxy. */
   TRUST_PROXY: z.string().optional(),
+  /**
+   * Shared secret CloudFront adds as `X-Origin-Verify`. When set, requests
+   * without it are rejected, so the Lambda URL can't be hit directly.
+   */
+  ORIGIN_VERIFY_SECRET: z.string().min(16).optional(),
+  /** Max Postgres connections per process (keep small on Lambda). */
+  DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+  /** Serve Swagger UI at /docs. Defaults to on outside production. */
+  SWAGGER_ENABLED: z.enum(['true', 'false']).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

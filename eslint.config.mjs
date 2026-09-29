@@ -5,7 +5,15 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist', '**/coverage', '**/node_modules', 'apps/api/src/generated'] },
+  {
+    ignores: [
+      '**/dist',
+      '**/coverage',
+      '**/node_modules',
+      'apps/api/src/generated',
+      '**/.terraform',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -37,9 +45,13 @@ export default tseslint.config(
   },
   {
     // Plain CommonJS on purpose, so it parses on any Node version (see file header).
-    files: ['scripts/**/*.js'],
+    files: ['scripts/**/*.js', 'infra/**/*.js'],
     languageOptions: { sourceType: 'commonjs', globals: globals.node },
     rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: globals.node },
   },
   {
     files: ['apps/web/src/test/**', '**/*.test.{ts,tsx}'],

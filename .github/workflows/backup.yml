@@ -1,0 +1,34 @@
+name: Backup database
+
+# Weekly logical backup of the production Postgres (Neon) to S3.
+on:
+  schedule:
+    - cron: '17 7 * * 1' # Mondays 07:17 UTC
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  backup:
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Dump and upload
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+        run: |
+          file="site-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+          # pg_dump must be >= the server major version; newer versions dump older servers fine.
+          docker run --rm -e DATABASE_URL postgres:18-alpine \
+            sh -c 'pg_dump --no-owner --no-privileges "$DATABASE_URL"' | gzip > "$file"
+          test "$(gzip -dc "$file" | wc -c)" -gt 1000
+          aws s3 cp "$file" "s3://${{ vars.BACKUPS_BUCKET }}/${file}"
