@@ -1,9 +1,9 @@
 # Infrastructure
 
-Serverless production setup on AWS, costing about **$17/yr** (the domain). Everything else fits in free allowances.
+Serverless production setup on AWS with Cloudflare DNS, costing about **$12.20/yr** (the domain). Everything else fits in free allowances.
 
 ```
-Route 53 ──► CloudFront (flat-rate Free plan: CDN, TLS, WAF, DNS)
+Cloudflare DNS (DNS-only CNAMEs) ──► CloudFront (flat-rate Free plan: CDN, TLS, WAF)
                ├─ /*      → S3 (private, OAC)            React build
                └─ /api/*  → Lambda Function URL          NestJS via Lambda Web Adapter
                             (+ secret X-Origin-Verify header)    │
@@ -11,10 +11,10 @@ Route 53 ──► CloudFront (flat-rate Free plan: CDN, TLS, WAF, DNS)
                                                    Neon Postgres (free tier)
 ```
 
-| Directory    | Purpose                                                                          | State                       |
-| ------------ | -------------------------------------------------------------------------------- | --------------------------- |
-| `bootstrap/` | State bucket, GitHub OIDC provider, deploy role. Applied once.                   | Local (`terraform.tfstate`) |
-| `prod/`      | Buckets, Lambda, CloudFront, ACM, WAF, DNS records, budgets, deploy permissions. | S3 (from `bootstrap`)       |
+| Directory    | Purpose                                                                                     | State                       |
+| ------------ | ------------------------------------------------------------------------------------------- | --------------------------- |
+| `bootstrap/` | State bucket, GitHub OIDC provider, deploy role. Applied once.                              | Local (`terraform.tfstate`) |
+| `prod/`      | Buckets, Lambda, CloudFront, ACM, WAF, Cloudflare DNS records, budgets, deploy permissions. | S3 (from `bootstrap`)       |
 
 Deploys are handled by [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml), which runs after CI passes on `main`. Terraform only creates the infrastructure; it never ships code.
 
@@ -22,7 +22,8 @@ Deploys are handled by [`.github/workflows/deploy.yml`](../.github/workflows/dep
 
 ### 0. Prerequisites (manual)
 
-1. **Register the domain** `jonathangraniero.dev` in the Route 53 console (Registered domains → Register). This creates the hosted zone automatically.
+1. **Register the domain** `jonathangraniero.dev` with Cloudflare Registrar ($12.20/yr at cost), either in the dashboard or through the [Registrar API](https://developers.cloudflare.com/registrar/registrar-api/) (`POST /accounts/{id}/registrar/registrations`). Cloudflare-registered domains must use Cloudflare DNS; the zone is created automatically.
+   - **API token:** create a Cloudflare API token with **Account → Registrar → Edit** (only for API registration), **Zone → DNS → Edit** and **Zone → Zone → Read**. Terraform reads it from `CLOUDFLARE_API_TOKEN`.
 2. **Create a Neon project** (<https://neon.tech>, Free plan) in region **AWS US East 2 (Ohio)**, with a database named `site`. Copy both connection strings:
    - **Pooled** (host contains `-pooler`): used by the Lambda at runtime.
    - **Direct**: used for migrations, seeding and backups.
@@ -47,6 +48,7 @@ terraform output   # note state_bucket and github_deploy_role_arn
 ```bash
 cd ../prod
 cp terraform.tfvars.example terraform.tfvars   # set alert_email
+export CLOUDFLARE_API_TOKEN=<token with Zone:DNS:Edit>
 terraform init -backend-config="bucket=<state_bucket from bootstrap>"
 terraform apply
 ```
@@ -57,9 +59,11 @@ The first apply takes about 5–10 minutes (CloudFront and ACM validation). The 
 
 Terraform can't manage pricing plans yet (provider PR [#49235](https://github.com/hashicorp/terraform-provider-aws/pull/49235)).
 
-1. Go to **CloudFront → Distributions → (jonathangraniero.dev) → Manage plan**.
-2. Choose **Free**.
-3. Attach the **Route 53 hosted zone** to the plan so its fees are covered.
+Either use the console (**CloudFront → Distributions → (jonathangraniero.dev) → Manage plan → Free**), or use a current AWS CLI:
+
+```bash
+aws pricing-plan-manager create-subscription ...   # plan family CloudFront, tier FREE, the distribution ARN
+```
 
 If the account isn't eligible, set `enable_waf = false` in `terraform.tfvars` and re-apply. Pay-as-you-go WAF costs about $5+/month, while CloudFront itself stays within its always-free allowance. While a distribution is subscribed, CloudFront blocks deleting it or swapping its WAF, so cancel the plan before `terraform destroy`.
 

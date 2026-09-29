@@ -10,26 +10,28 @@ resource "aws_acm_certificate" "site" {
   }
 }
 
-resource "aws_route53_record" "cert_validation" {
+# DNS-validation records live in Cloudflare (never proxied).
+resource "cloudflare_dns_record" "cert_validation" {
   for_each = {
     for o in aws_acm_certificate.site.domain_validation_options : o.domain_name => {
-      name   = o.resource_record_name
+      name   = trimsuffix(o.resource_record_name, ".")
       type   = o.resource_record_type
-      record = o.resource_record_value
+      record = trimsuffix(o.resource_record_value, ".")
     }
   }
-  zone_id         = data.aws_route53_zone.site.zone_id
-  name            = each.value.name
-  type            = each.value.type
-  records         = [each.value.record]
-  ttl             = 300
-  allow_overwrite = true
+  zone_id = data.cloudflare_zone.site.id
+  name    = each.value.name
+  type    = each.value.type
+  content = each.value.record
+  ttl     = 60
+  proxied = false
+  comment = "ACM validation (terraform)"
 }
 
 resource "aws_acm_certificate_validation" "site" {
   provider                = aws.use1
   certificate_arn         = aws_acm_certificate.site.arn
-  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+  validation_record_fqdns = [for r in cloudflare_dns_record.cert_validation : r.name]
 }
 
 # ---------- Managed policies (looked up by name) ----------

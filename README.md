@@ -114,9 +114,9 @@ The seed only **inserts** content, so anything edited through `/admin` survives 
 
 ## Deployment
 
-Production runs serverless on AWS for about **$17/yr** (just the domain):
+Production runs serverless on AWS for about **$12/yr** (just the domain, on Cloudflare Registrar):
 
-- **Web:** the React build on S3, served through CloudFront on its free flat-rate plan (CDN, TLS, WAF and DNS included).
+- **Web:** the React build on S3, served through CloudFront on its free flat-rate plan (CDN, TLS and WAF included). DNS is on Cloudflare.
 - **API:** runs on Lambda through the Lambda Web Adapter, so the NestJS app runs unchanged.
 - **Database:** Postgres on Neon's free tier.
 

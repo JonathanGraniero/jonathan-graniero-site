@@ -1,12 +1,14 @@
-resource "aws_route53_record" "site" {
-  for_each = toset(flatten([for name in [var.domain, local.www_domain] : ["${name}|A", "${name}|AAAA"]]))
+# Apex and www point at CloudFront. DNS-only (proxied = false): CloudFront is
+# the CDN, and a second proxy in front would break TLS and double-cache. The
+# apex CNAME works because Cloudflare flattens it to A/AAAA answers.
+resource "cloudflare_dns_record" "site" {
+  for_each = toset([var.domain, local.www_domain])
 
-  zone_id = data.aws_route53_zone.site.zone_id
-  name    = split("|", each.key)[0]
-  type    = split("|", each.key)[1]
-  alias {
-    name                   = aws_cloudfront_distribution.site.domain_name
-    zone_id                = aws_cloudfront_distribution.site.hosted_zone_id
-    evaluate_target_health = false
-  }
+  zone_id = data.cloudflare_zone.site.id
+  name    = each.value
+  type    = "CNAME"
+  content = aws_cloudfront_distribution.site.domain_name
+  ttl     = 1 # automatic
+  proxied = false
+  comment = "CloudFront (terraform)"
 }

@@ -4,7 +4,7 @@ variable "region" {
 }
 
 variable "domain" {
-  description = "Apex domain, registered in Route 53."
+  description = "Apex domain, registered with Cloudflare Registrar (DNS on Cloudflare)."
   type        = string
   default     = "jonathangraniero.dev"
 }

@@ -1,6 +1,8 @@
 # Production stack: S3 + CloudFront for the SPA, Lambda (NestJS via the Lambda
-# Web Adapter) for /api/*, Route 53 DNS, optional WAF, budgets.
+# Web Adapter) for /api/*, Cloudflare DNS (the domain is registered there),
+# optional WAF, budgets.
 #
+#   export CLOUDFLARE_API_TOKEN=...   # Zone:DNS:Edit on the domain's zone
 #   terraform init -backend-config="bucket=<bootstrap state_bucket>"
 #   terraform apply
 
@@ -14,6 +16,10 @@ terraform {
     archive = {
       source  = "hashicorp/archive"
       version = "~> 2.7"
+    }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.26"
     }
   }
   backend "s3" {
@@ -40,6 +46,9 @@ provider "aws" {
   }
 }
 
+# Reads CLOUDFLARE_API_TOKEN from the environment.
+provider "cloudflare" {}
+
 data "aws_caller_identity" "current" {}
 
 locals {
@@ -48,10 +57,12 @@ locals {
   site_url   = "https://${var.domain}"
 }
 
-# The hosted zone is created automatically when the domain is registered in Route 53.
-data "aws_route53_zone" "site" {
-  name         = var.domain
-  private_zone = false
+# The domain is registered with Cloudflare Registrar, which requires Cloudflare
+# DNS; the zone is created automatically at registration.
+data "cloudflare_zone" "site" {
+  filter = {
+    name = var.domain
+  }
 }
 
 # Secrets are created by hand in SSM (see infra/README.md) and never committed.
