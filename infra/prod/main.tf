@@ -1,6 +1,9 @@
-# Production stack: S3 + CloudFront for the SPA, Lambda (NestJS via the Lambda
-# Web Adapter) for /api/*, Cloudflare DNS (the domain is registered there),
-# optional WAF, budgets.
+# Production stack (hybrid):
+#   - Cloudflare: domain, DNS, edge settings, www redirect, rate limiting (this
+#     stack). The Worker itself (static site + /api proxy) is declared in
+#     apps/edge/wrangler.jsonc and shipped by `wrangler deploy`.
+#   - AWS: the NestJS API on Lambda (via the Lambda Web Adapter) behind a
+#     Function URL, deploy artifacts, backups, budgets.
 #
 #   export CLOUDFLARE_API_TOKEN=...   # Zone:DNS:Edit on the domain's zone
 #   terraform init -backend-config="bucket=<bootstrap state_bucket>"
@@ -32,15 +35,6 @@ terraform {
 
 provider "aws" {
   region = var.region
-  default_tags {
-    tags = { Project = "jonathan-graniero-site", Environment = "prod", ManagedBy = "terraform" }
-  }
-}
-
-# CloudFront certificates and WAF web ACLs must live in us-east-1.
-provider "aws" {
-  alias  = "use1"
-  region = "us-east-1"
   default_tags {
     tags = { Project = "jonathan-graniero-site", Environment = "prod", ManagedBy = "terraform" }
   }

@@ -3,16 +3,6 @@
 
 data "aws_iam_policy_document" "github_deploy" {
   statement {
-    sid       = "WebSync"
-    actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.site.arn]
-  }
-  statement {
-    sid       = "WebObjects"
-    actions   = ["s3:PutObject", "s3:DeleteObject", "s3:GetObject"]
-    resources = ["${aws_s3_bucket.site.arn}/*"]
-  }
-  statement {
     sid       = "Artifacts"
     actions   = ["s3:PutObject", "s3:GetObject"]
     resources = ["${aws_s3_bucket.artifacts.arn}/*"]
@@ -22,10 +12,11 @@ data "aws_iam_policy_document" "github_deploy" {
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.backups.arn}/*"]
   }
+  # The Worker's ORIGIN_VERIFY_SECRET is uploaded by CI from SSM at deploy time.
   statement {
-    sid       = "Invalidate"
-    actions   = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
-    resources = [aws_cloudfront_distribution.site.arn]
+    sid       = "ReadOriginSecret"
+    actions   = ["ssm:GetParameter"]
+    resources = [data.aws_ssm_parameter.origin_verify_secret.arn]
   }
   statement {
     sid       = "DeployLambda"

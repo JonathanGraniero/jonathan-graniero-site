@@ -2,7 +2,7 @@
   "name": "jonathan-graniero-site",
   "private": true,
   "version": "0.1.0",
-  "description": "Personal blog and career site — React frontend, NestJS API, Postgres.",
+  "description": "Personal blog and career site \u2014 React frontend, NestJS API, Postgres.",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w @site/api\" \"npm run dev -w @site/web\"",
     "build": "npm run build -w @site/shared && npm run build -w @site/api && npm run build -w @site/web",
-    "test": "npm run test -w @site/api && npm run test -w @site/web",
+    "test": "npm run test -w @site/api && npm run test -w @site/web && npm run test -w @site/edge",
     "test:e2e": "npm run test:e2e -w @site/api",
     "lint": "eslint .",
     "typecheck": "npm run build -w @site/shared && npm run typecheck --workspaces --if-present",
@@ -36,7 +36,9 @@
     "@scarf/scarf": false,
     "@parcel/watcher": false,
     "unrs-resolver": false,
-    "msw": false
+    "msw": false,
+    "workerd@1.20260926.1": true,
+    "esbuild@0.28.1": true
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

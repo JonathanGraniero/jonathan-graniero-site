@@ -1,0 +1,34 @@
+// Cloudflare Worker for jonathangraniero.dev. This file is the Worker's
+// infrastructure-as-code: `wrangler deploy` reconciles the script, its static
+// assets, custom domain and vars to match it. Zone-level settings (redirects,
+// rate limiting, TLS) are managed by Terraform in infra/prod/cloudflare.tf.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "jonathan-graniero-site",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+
+  // The apex is attached as a Workers Custom Domain: Cloudflare creates the
+  // DNS record and edge certificate. www → apex is a Terraform redirect rule.
+  "routes": [{ "pattern": "jonathangraniero.dev", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // The React build, served for free straight from Cloudflare's edge. Only
+  // /api/* runs the Worker; unknown paths fall back to index.html (SPA routes).
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+
+  "vars": {
+    // `terraform -chdir=infra/prod output lambda_function_url`
+    "API_ORIGIN": "https://p2e37kraycrvpa2lrzdi53jfva0vzrgt.lambda-url.us-east-2.on.aws",
+  },
+  // ORIGIN_VERIFY_SECRET is a Worker secret, uploaded by CI from SSM
+  // (/site/prod/ORIGIN_VERIFY_SECRET) with `wrangler deploy --secrets-file`.
+
+  "observability": { "enabled": true },
+}

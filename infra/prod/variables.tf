@@ -20,12 +20,6 @@ variable "alert_email" {
   type        = string
 }
 
-variable "enable_waf" {
-  description = "Attach a WAF web ACL. Free on the CloudFront flat-rate Free plan; ~$5+/mo on pay-as-you-go, so disable if not on the plan."
-  type        = bool
-  default     = true
-}
-
 variable "lambda_memory_mb" {
   description = "More memory also means more CPU, which shortens cold starts. 1024 MB stays well inside the always-free 400k GB-s."
   type        = number

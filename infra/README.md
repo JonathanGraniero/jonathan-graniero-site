@@ -1,122 +1,121 @@
 # Infrastructure
 
-Serverless production setup on AWS with Cloudflare DNS, costing about **$12.20/yr** (the domain). Everything else fits in free allowances.
+The production setup is **hybrid**: Cloudflare runs the edge, and AWS runs the API. It costs **$12.20/yr** (the domain). Everything else fits in free tiers.
 
 ```
-Cloudflare DNS (DNS-only CNAMEs) ──► CloudFront (flat-rate Free plan: CDN, TLS, WAF)
-               ├─ /*      → S3 (private, OAC)            React build
-               └─ /api/*  → Lambda Function URL          NestJS via Lambda Web Adapter
-                            (+ secret X-Origin-Verify header)    │
-                                                                 ▼
-                                                   Neon Postgres (free tier)
+jonathangraniero.dev ──► Cloudflare Worker "jonathan-graniero-site"  (apps/edge)
+                           ├─ /*      → static assets: the React build (free, unlimited)
+                           └─ /api/*  → AWS Lambda Function URL (+ X-Origin-Verify secret)
+                                          └─ NestJS via Lambda Web Adapter → Neon Postgres
+www.jonathangraniero.dev ─► 301 to the apex (Cloudflare redirect rule)
 ```
 
-| Directory    | Purpose                                                                                     | State                       |
-| ------------ | ------------------------------------------------------------------------------------------- | --------------------------- |
-| `bootstrap/` | State bucket, GitHub OIDC provider, deploy role. Applied once.                              | Local (`terraform.tfstate`) |
-| `prod/`      | Buckets, Lambda, CloudFront, ACM, WAF, Cloudflare DNS records, budgets, deploy permissions. | S3 (from `bootstrap`)       |
+## Who owns what (all declarative, in this repo)
 
-Deploys are handled by [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml), which runs after CI passes on `main`. Terraform only creates the infrastructure; it never ships code.
+| Piece                                                                      | Defined in                                                | Applied by                                       |
+| -------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------ |
+| Worker script, static assets, apex custom domain (DNS + certificate), vars | [`apps/edge/wrangler.jsonc`](../apps/edge/wrangler.jsonc) | `wrangler deploy` (CI)                           |
+| Worker secret `ORIGIN_VERIFY_SECRET`                                       | SSM `/site/prod/ORIGIN_VERIFY_SECRET`                     | CI: `wrangler deploy --secrets-file`             |
+| Cloudflare zone settings (HTTPS, TLS), www redirect, rate limiting         | [`prod/cloudflare.tf`](prod/cloudflare.tf)                | Terraform                                        |
+| Lambda, Function URL, artifact/backup buckets, budgets, deploy IAM         | [`prod/`](prod/)                                          | Terraform                                        |
+| Terraform state bucket, GitHub OIDC provider, deploy role                  | [`bootstrap/`](bootstrap/)                                | Terraform (once, local state)                    |
+| Database schema                                                            | `apps/api/prisma/migrations`                              | CI: `prisma migrate deploy`                      |
+| API code                                                                   | `apps/api`                                                | CI: packaged zip → `lambda update-function-code` |
 
-## First-time setup
+## Accounts and secrets
 
-### 0. Prerequisites (manual)
+- **Domain:** `jonathangraniero.dev` via Cloudflare Registrar. The zone is on Cloudflare.
+- **Neon:** project `personal-site` (`holy-cloud-59526452`, aws-us-east-2), database `neondb`.
+- **SSM (us-east-2), all SecureString:**
+  - `/site/prod/DATABASE_URL` (Neon pooled)
+  - `/site/prod/JWT_SECRET`
+  - `/site/prod/ORIGIN_VERIFY_SECRET`
+  - `/site/prod/ADMIN_PASSWORD`
+- **GitHub `production` environment secrets:**
+  - `NEON_DIRECT_URL`: migrations and backups
+  - `CLOUDFLARE_API_TOKEN`: CI token, see below
+- **GitHub repository variables:**
 
-1. **Register the domain** `jonathangraniero.dev` with Cloudflare Registrar ($12.20/yr at cost), either in the dashboard or through the [Registrar API](https://developers.cloudflare.com/registrar/registrar-api/) (`POST /accounts/{id}/registrar/registrations`). Cloudflare-registered domains must use Cloudflare DNS; the zone is created automatically.
-   - **API token:** create a Cloudflare API token with **Account → Registrar → Edit** (only for API registration), **Zone → DNS → Edit** and **Zone → Zone → Read**. Terraform reads it from `CLOUDFLARE_API_TOKEN`.
-2. **Create a Neon project** (<https://neon.tech>, Free plan) in region **AWS US East 2 (Ohio)**, with a database named `site`. Copy both connection strings:
-   - **Pooled** (host contains `-pooler`): used by the Lambda at runtime.
-   - **Direct**: used for migrations, seeding and backups.
-3. **Store the runtime secrets in SSM** (SecureString, us-east-2):
+  | Variable                | Value                                           |
+  | ----------------------- | ----------------------------------------------- |
+  | `AWS_DEPLOY_ROLE_ARN`   | `arn:aws:iam::623805552183:role/gh-deploy-site` |
+  | `CLOUDFLARE_ACCOUNT_ID` | the Cloudflare account ID                       |
+  | `ARTIFACTS_BUCKET`      | `terraform output artifacts_bucket`             |
+  | `BACKUPS_BUCKET`        | `terraform output backups_bucket`               |
+  | `LAMBDA_FUNCTION_NAME`  | `terraform output lambda_function_name`         |
+  | `SITE_URL`              | `https://jonathangraniero.dev`                  |
 
-   ```bash
-   aws ssm put-parameter --type SecureString --name /site/prod/DATABASE_URL        --value '<neon pooled url>'
-   aws ssm put-parameter --type SecureString --name /site/prod/JWT_SECRET          --value "$(openssl rand -base64 48)"
-   aws ssm put-parameter --type SecureString --name /site/prod/ORIGIN_VERIFY_SECRET --value "$(openssl rand -hex 32)"
-   ```
+### Cloudflare API tokens
 
-### 1. Bootstrap
+Two narrowly scoped tokens were minted for this project, so no personal or broad token is used in automation:
+
+| Token               | Scope                                                                                                     | Stored in                                                                                        |
+| ------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `jg-site-terraform` | Zone `jonathangraniero.dev`: Zone Settings, Dynamic URL Redirects, Zone WAF, DNS (write) and Zone (read)  | SSM `/site/prod/CLOUDFLARE_TERRAFORM_TOKEN`                                                      |
+| `jg-site-ci-deploy` | Account: Workers Scripts (write). Zone: Workers Routes, DNS, SSL and Certificates (write) and Zone (read) | GitHub `production` secret `CLOUDFLARE_API_TOKEN` (copy in SSM `/site/prod/CLOUDFLARE_CI_TOKEN`) |
+
+## Applying Terraform
 
 ```bash
-cd infra/bootstrap
-terraform init && terraform apply
-terraform output   # note state_bucket and github_deploy_role_arn
-```
+# once
+cd infra/bootstrap && terraform init && terraform apply
 
-### 2. Production stack
-
-```bash
-cd ../prod
-cp terraform.tfvars.example terraform.tfvars   # set alert_email
-export CLOUDFLARE_API_TOKEN=<token with Zone:DNS:Edit>
-terraform init -backend-config="bucket=<state_bucket from bootstrap>"
+# production
+cd infra/prod
+cp terraform.tfvars.example terraform.tfvars          # alert_email
+export CLOUDFLARE_API_TOKEN="$(aws ssm get-parameter --name /site/prod/CLOUDFLARE_TERRAFORM_TOKEN --with-decryption --query Parameter.Value --output text)"
+terraform init -backend-config="bucket=jg-site-tfstate-623805552183"
 terraform apply
 ```
 
-The first apply takes about 5–10 minutes (CloudFront and ACM validation). The API answers `503 API not deployed yet` until the first deploy.
+## Deploying
 
-### 3. CloudFront Free plan (console, one time)
+Pushing to `main` runs CI. When it passes, [`deploy.yml`](../.github/workflows/deploy.yml) runs these steps:
 
-Terraform can't manage pricing plans yet (provider PR [#49235](https://github.com/hashicorp/terraform-provider-aws/pull/49235)).
+1. **API:** runs on an arm64 runner. Migrates Neon, packages the API (traced, about 19 MB), and updates the Lambda.
+2. **Edge:** builds the web app, pulls the origin secret from SSM, and runs `wrangler deploy`.
+3. **Smoke test:** checks `/api/health`, a deep link, and the www → apex 301.
 
-Either use the console (**CloudFront → Distributions → (jonathangraniero.dev) → Manage plan → Free**), or use a current AWS CLI:
+You can also run it manually from **Actions → Deploy → Run workflow**.
 
-```bash
-aws pricing-plan-manager create-subscription ...   # plan family CloudFront, tier FREE, the distribution ARN
-```
-
-If the account isn't eligible, set `enable_waf = false` in `terraform.tfvars` and re-apply. Pay-as-you-go WAF costs about $5+/month, while CloudFront itself stays within its always-free allowance. While a distribution is subscribed, CloudFront blocks deleting it or swapping its WAF, so cancel the plan before `terraform destroy`.
-
-### 4. GitHub configuration
-
-- **Environment:** create an environment named `production` (Settings → Environments). Add **secret** `NEON_DIRECT_URL` = the Neon direct URL.
-- **Repository variables:** add these (Settings → Secrets and variables → Actions → Variables), using the values from `terraform output`:
-
-  | Variable                     | Value                                  |
-  | ---------------------------- | -------------------------------------- |
-  | `AWS_DEPLOY_ROLE_ARN`        | `bootstrap` → `github_deploy_role_arn` |
-  | `WEB_BUCKET`                 | `web_bucket`                           |
-  | `ARTIFACTS_BUCKET`           | `artifacts_bucket`                     |
-  | `BACKUPS_BUCKET`             | `backups_bucket`                       |
-  | `CLOUDFRONT_DISTRIBUTION_ID` | `cloudfront_distribution_id`           |
-  | `LAMBDA_FUNCTION_NAME`       | `lambda_function_name`                 |
-  | `SITE_URL`                   | `site_url`                             |
-
-  Deploys are skipped until `AWS_DEPLOY_ROLE_ARN` is set.
-
-### 5. Seed and deploy
+### Seeding a fresh database
 
 ```bash
-# From the repo root. Creates the admin user plus starter content.
-DATABASE_URL='<neon direct url>' ADMIN_EMAIL='you@…' ADMIN_PASSWORD='<strong password>' \
-  npm run db:deploy -w @site/api && \
-DATABASE_URL='<neon direct url>' ADMIN_EMAIL='you@…' ADMIN_PASSWORD='<strong password>' \
-  npm run db:seed
+DATABASE_URL='<neon direct url>' ADMIN_EMAIL='…' \
+ADMIN_PASSWORD="$(aws ssm get-parameter --name /site/prod/ADMIN_PASSWORD --with-decryption --query Parameter.Value --output text)" \
+npm run db:seed
 ```
-
-Then run **Actions → Deploy → Run workflow** (or push to `main`).
 
 ## Verify
 
 ```bash
-curl -s https://jonathangraniero.dev/api/health          # {"status":"ok",...}
-curl -s -o /dev/null -w '%{http_code}\n' "$(terraform -chdir=infra/prod output -raw lambda_function_url)api/posts"   # 403
-curl -sI http://jonathangraniero.dev | grep -i location   # https://…
-curl -sI https://www.jonathangraniero.dev | grep -i location   # https://jonathangraniero.dev/
+curl -s https://jonathangraniero.dev/api/health                       # {"status":"ok",...}
+curl -s -o /dev/null -w '%{http_code}\n' \
+  "$(terraform -chdir=infra/prod output -raw lambda_function_url)api/posts"   # 403 (not via the Worker)
+curl -sI https://www.jonathangraniero.dev/about | grep -i location   # https://jonathangraniero.dev/about
 ```
 
 ## Operations
 
-- **Logs:** CloudWatch log group `/aws/lambda/jg-site-api` (14-day retention).
-- **Backups:** the weekly [`backup.yml`](../.github/workflows/backup.yml) workflow writes `pg_dump` output to the backups bucket, kept for 90 days. To restore:
+- **Logs:**
+  - Worker: Cloudflare dashboard → Workers → Observability.
+  - API: CloudWatch log group `/aws/lambda/jg-site-api` (14-day retention).
+- **Backups:** the weekly [`backup.yml`](../.github/workflows/backup.yml) workflow writes `pg_dump` to the backups bucket, kept for 90 days.
+- **Guardrails:**
+  - An AWS Budget emails at $2 (actual) and $5 (forecast).
+  - A Cloudflare rate-limit rule covers login and contact.
+  - The API also throttles requests itself.
+- **Limits:**
+  - The Workers free plan allows 100k requests/day, but only `/api/*` invokes the Worker; static assets are free.
+  - The Lambda account concurrency limit is 10.
+- **Cold starts:** after about 5 idle minutes, the first API request pays for a Lambda cold start plus Neon resuming, usually 1–3s.
+- **Local `wrangler dev`:** `workerd` needs glibc 2.32+. On older distros (Debian 11/WSL), run it in Docker:
 
   ```bash
-  gunzip -c site-<ts>.sql.gz | psql '<neon direct url>'
+  docker run --rm --network host -v "$PWD":/repo -w /repo/apps/edge node:24-bookworm \
+    npx wrangler dev --var API_ORIGIN:http://localhost:3000 --var ORIGIN_VERIFY_SECRET:dev
   ```
 
-- **Cost guardrails:**
-  - AWS Budget emails at $2 (actual) and $5 (forecast).
-  - Lambda reserved concurrency of 5.
-  - The WAF rate limits login and contact POSTs.
-- **Cold starts:** after about 5 idle minutes, the first request pays for a Lambda cold start plus Neon resuming, usually 1–3s. Edge caching of public API responses (60s) hides most of this.
-- **Rotating secrets:** update the SSM parameter, then `terraform apply` in `prod`. The Lambda environment and the CloudFront header are re-read.
+## History
+
+The original design used CloudFront with its flat-rate free plan. AWS blocked CloudFront (and Route 53 registration) pending account verification, so the edge moved to Cloudflare, where the domain lives anyway. The Lambda side is unchanged.

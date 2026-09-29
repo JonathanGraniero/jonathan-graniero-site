@@ -4,3 +4,4 @@ coverage
 apps/api/prisma/migrations
 package-lock.json
 apps/api/src/generated
+.wrangler

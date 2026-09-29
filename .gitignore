@@ -21,3 +21,7 @@ apps/api/src/generated/
 !*.tfvars.example
 infra/prod/.build/
 .terraform.lock.hcl.bak
+
+# Wrangler local state
+.wrangler/
+.dev.vars

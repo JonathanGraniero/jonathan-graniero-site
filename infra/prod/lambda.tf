@@ -76,8 +76,8 @@ resource "aws_lambda_function" "api" {
   depends_on = [aws_cloudwatch_log_group.api, aws_iam_role_policy_attachment.api_logs]
 }
 
-# Public URL, but the app rejects any request without CloudFront's secret header.
-# (OAC isn't used: it requires browsers to hash POST bodies for Lambda URLs.)
+# Public URL, but the app rejects any request without the edge Worker's secret
+# header (X-Origin-Verify), so only jonathangraniero.dev can reach it.
 resource "aws_lambda_function_url" "api" {
   function_name      = aws_lambda_function.api.function_name
   authorization_type = "NONE"

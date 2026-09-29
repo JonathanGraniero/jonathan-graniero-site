@@ -114,12 +114,16 @@ The seed only **inserts** content, so anything edited through `/admin` survives 
 
 ## Deployment
 
-Production runs serverless on AWS for about **$12/yr** (just the domain, on Cloudflare Registrar):
+Production is **hybrid** and costs about **$12/yr** (just the domain):
 
-- **Web:** the React build on S3, served through CloudFront on its free flat-rate plan (CDN, TLS and WAF included). DNS is on Cloudflare.
-- **API:** runs on Lambda through the Lambda Web Adapter, so the NestJS app runs unchanged.
+- **Edge (Cloudflare):** a Worker ([`apps/edge`](apps/edge)) on `jonathangraniero.dev` serves the React build as free static assets, and proxies `/api/*` to AWS with a shared-secret header.
+- **API (AWS):** runs on Lambda through the Lambda Web Adapter, so NestJS runs unchanged. Direct calls to its URL get a 403.
 - **Database:** Postgres on Neon's free tier.
 
-Infrastructure is Terraform in [`infra/`](infra/README.md), which also has the first-time setup runbook. After CI passes on `main`, [`deploy.yml`](.github/workflows/deploy.yml) ships both apps using GitHub OIDC, with no stored AWS keys. [`backup.yml`](.github/workflows/backup.yml) takes a weekly database dump.
+Everything is declarative:
+
+- **Terraform** in [`infra/`](infra/README.md) covers AWS plus Cloudflare zone settings, redirects and rate limiting.
+- **[`wrangler.jsonc`](apps/edge/wrangler.jsonc)** covers the Worker, its assets and its custom domain.
+- **Deploys:** after CI passes on `main`, [`deploy.yml`](.github/workflows/deploy.yml) ships both, using GitHub OIDC so there are no stored AWS keys.
 
 The API package is traced from `dist/main.js` by [`scripts/package-api.sh`](scripts/package-api.sh), so only files that are actually loaded ship: about 19 MB unzipped.
