@@ -113,7 +113,7 @@ const projects: Prisma.ProjectCreateManyInput[] = [
     description:
       'Self-hosted blog and portfolio: a React client and NestJS API sharing a typed contract, with Postgres full-text search and a markdown admin editor.',
     url: null,
-    repoUrl: null,
+    repoUrl: 'https://github.com/JonathanGraniero/jonathan-graniero-site',
     tech: ['React', 'NestJS', 'Prisma', 'PostgreSQL'],
     featured: true,
     sortOrder: 2,
