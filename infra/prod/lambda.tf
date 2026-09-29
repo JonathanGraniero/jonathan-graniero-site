@@ -41,8 +41,10 @@ resource "aws_lambda_function" "api" {
   memory_size   = var.lambda_memory_mb
   timeout       = 15 # covers Neon resuming from scale-to-zero
 
-  # Caps concurrent executions: bounds cost and Neon connections (x DB_POOL_MAX).
-  reserved_concurrent_executions = 5
+  # No reserved concurrency: this account's Lambda concurrency limit is 10,
+  # and AWS requires 10 to stay unreserved. That account limit already bounds
+  # concurrency (and Neon connections: 10 x DB_POOL_MAX); WAF rate limits and
+  # budgets cover cost.
 
   filename         = data.archive_file.placeholder.output_path
   source_code_hash = data.archive_file.placeholder.output_base64sha256
