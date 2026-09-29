@@ -1,8 +1,7 @@
 /**
- * Blog posts seeded into a fresh database. Written from the projects in this
- * repo's sibling directories (kflare, the ACK Glue controller, this site).
- * The seed only inserts posts whose slug doesn't exist yet, so edits made
- * through /admin are preserved.
+ * Blog posts. `npm run db:seed` inserts any whose slug doesn't exist yet;
+ * `npm run db:seed -- --sync` also overwrites existing ones (content, tags and
+ * publish date) so this file can be the source of truth for them.
  */
 export interface SeedPost {
   slug: string;
@@ -15,145 +14,55 @@ export interface SeedPost {
 
 export const seedPosts: SeedPost[] = [
   {
-    slug: 'hello-world',
-    title: 'Hello, world — why I built this site',
+    slug: 'when-adopt-or-create-should-mean-upsert',
+    title: 'adopt-or-create should probably just be upsert',
     excerpt:
-      'A home on the internet I actually own: what this site is for, how it is built, and what to expect here.',
-    tags: ['Meta'],
-    publishedAt: '2026-09-28T12:00:00Z',
-    contentMd: `My notes have always ended up scattered across gists, READMEs, PR descriptions and half-finished drafts. This site gives them one home, and it's one I control end to end.
+      "ACK can adopt an existing AWS resource, and then immediately error because it doesn't match your manifest. I tried to change that and didn't finish.",
+    tags: ['Kubernetes', 'AWS', 'Open Source'],
+    publishedAt: '2025-06-10T14:12:00Z',
+    contentMd: `If you use [AWS Controllers for Kubernetes](https://github.com/aws-controllers-k8s) (ACK), there's an annotation that sounds like exactly what you want when you're moving existing infrastructure into GitOps:
 
-## What you'll find here
-
-- **Engineering write-ups.** Mostly Kubernetes controllers, AWS and backend services — the things I spend my time building.
-- **Project notes.** What I built, the trade-offs, and what I'd do differently. Start with [kflare](/blog/building-kflare-kubernetes-operator-for-cloudflare) or my work on the [ACK Glue controller](/blog/adding-a-database-resource-to-the-ack-glue-controller).
-- **Career.** A living résumé on the [about page](/about).
-
-## How it's built
-
-The site is a small monorepo:
-
-| Layer    | Tech                                     |
-| -------- | ---------------------------------------- |
-| Frontend | React, Vite, TanStack Query, Tailwind    |
-| API      | NestJS, Prisma, PostgreSQL               |
-| Contract | A shared TypeScript package of API types |
-
-The API and the client share one set of types, so a renamed field is a compile error rather than a production bug. I wrote up [how that works](/blog/type-safe-apis-with-nestjs), along with why [Postgres full-text search](/blog/postgres-full-text-search-is-enough) is all the search a blog needs.
-
-Thanks for stopping by.`,
-  },
-  {
-    slug: 'building-kflare-kubernetes-operator-for-cloudflare',
-    title: 'Building kflare: lessons from a Kubernetes operator for Cloudflare',
-    excerpt:
-      'Narrow interfaces for testability, sorting Cloudflare errors into terminal and retryable, and adopting records that already exist — notes from building a Cloudflare operator in Go.',
-    tags: ['Kubernetes', 'Go', 'Cloudflare'],
-    publishedAt: '2026-09-28T12:10:00Z',
-    contentMd: `[kflare](https://github.com/JonathanGraniero/kflare) is a Kubernetes operator for Cloudflare. Instead of clicking through the dashboard or scripting API calls, you describe DNS zones and records as Kubernetes custom resources, commit them to git, and let the operator make Cloudflare match.
-
-There are community operators in this space already, but the ones I found were narrowly scoped or inconsistently maintained. I wanted one built to production standards from the start: consistent patterns across every controller, real tests, and no shortcuts.
-
-## The resource model
-
-Resources form a dependency chain:
-
-- **CloudflareAccount** (cluster-scoped) points at a Kubernetes \`Secret\` holding an API token, and validates the token against the Cloudflare API on every reconcile.
-- **Zone** references an account and manages a Cloudflare zone.
-- **DNSRecord** references a zone and manages a single record.
-
-Because each resource depends on the one above it, most of a reconciler's early work is walking that chain and reporting *precisely* what's missing. A DNSRecord's \`Ready\` condition can say \`ZoneNotFound\`, \`ZoneNotReady\`, \`AccountNotReady\`, \`SecretNotFound\` or \`TokenKeyMissing\`. Each one tells whoever runs \`kubectl describe\` exactly what to fix.
-
-## Terminal vs. retryable errors
-
-The most important decision in any controller is what to do when an API call fails. Retrying a revoked token forever just burns rate limit. Giving up on a 503 leaves the resource broken until someone pokes it.
-
-kflare centralises that decision in one function:
-
-\`\`\`go
-func IsTerminalError(err error) bool {
-    if err == nil {
-        return false
-    }
-    // HTTP 403 — token lacks the required permission.
-    // cloudflare-go counterintuitively names this AuthenticationError.
-    var authErr *cf.AuthenticationError
-    if errors.As(err, &authErr) {
-        return true
-    }
-    // HTTP 401 — bad or revoked token (named AuthorizationError).
-    var authzErr *cf.AuthorizationError
-    if errors.As(err, &authzErr) {
-        return true
-    }
-    // ...404s and other 4xx request errors are terminal too.
-
-    // Rate limits (429), 5xx and network failures are retryable:
-    // controller-runtime's exponential back-off handles them.
-    return false
-}
+\`\`\`yaml
+services.k8s.aws/adoption-policy: adopt-or-create
 \`\`\`
 
-Terminal errors set a condition and stop requeuing. Everything else returns the error, and controller-runtime backs off and tries again.
+If the resource exists, ACK adopts it. If it doesn't, ACK creates it. Great.
 
-### The bug that tests didn't catch
+Except I ran into this: I had an SQS queue that already existed and matched my manifest except for one field (\`visibilityTimeout\` was 300 in AWS and something else in the spec). The first reconcile adopted it fine. The next reconcile noticed the difference and errored out instead of fixing it, and the queue just sat there adopted-but-broken.
 
-The first version used **value** types as the \`errors.As\` targets (\`var authErr cf.AuthenticationError\`). The unit tests constructed errors as values too, so everything passed.
+That felt backwards to me. I'm applying a manifest. The manifest is supposed to be the source of truth, that's the whole reason I'm doing this in git. So after adopting, the controller should push the spec onto the real resource, basically an upsert.
 
-But cloudflare-go's HTTP layer returns **pointers** (\`*cf.AuthenticationError\`), and \`errors.As\` matches on the exact type. In production, \`IsTerminalError\`, \`IsNotFound\` and \`IsRateLimit\` would have silently missed *every* real SDK error. A revoked token would have been retried forever.
+## What I tried
 
-The fix was one character per check. The lesson was bigger: **fakes must reproduce the contract of the thing they replace, including pointer-ness.** The tests now build errors exactly the way the SDK does.
+I [opened a PR against the ACK runtime](https://github.com/aws-controllers-k8s/runtime/pull/184) (linked to [this issue](https://github.com/aws-controllers-k8s/community/issues/2481)) that treats the desired manifest as the latest state after adoption, so the normal reconcile loop computes a delta and overwrites the deployed values.
 
-## Find, adopt, or create
+I opened it as a draft so I could see the diff while I worked on tests... and then I didn't get back to it. It went stale and the bot closed it.
 
-A reconciler should assume it has never run before. For DNS records that means three paths:
+That one's on me. If I pick it back up, I'd start with a failing test that reproduces the bug before touching any logic. That's the thing maintainers actually want to see, and it would have kept me honest about finishing.
 
-1. If status already has a record ID, fetch it. If it was deleted outside the operator, fall through and recreate it.
-2. Otherwise, **list** records with the same name and type. If one exists, adopt it rather than creating a duplicate.
-3. Only if nothing matches, create a new record.
+## The general point
 
-Adoption matters more than it sounds. Nobody starts using an operator with an empty Cloudflare account, and "import" should be a no-op, not a migration.
+"Adopt" can mean two different things:
 
-## Drift detection, and an SRV surprise
+1. Take ownership, and treat whatever's live as the truth.
+2. Take ownership, then make it match what I declared.
 
-After the record exists, the controller compares the spec against what Cloudflare reports: content, TTL, proxied, priority, comment and tags (sorted, since order doesn't matter). If anything differs, it issues a single update.
-
-One field can't be compared directly. For **SRV** records, Cloudflare generates the \`content\` field from the structured \`data\` block. The spec and the API never agree byte-for-byte, and a naive comparison would "fix" the record on every reconcile. The drift check skips \`content\` for SRV records and compares the structured fields instead.
-
-## Testing without a Cloudflare account
-
-Each controller depends on a narrow interface containing only the API methods it calls:
-
-\`\`\`go
-type DNSRecordAPI interface {
-    CreateDNSRecord(ctx context.Context, rc *cf.ResourceContainer, params cf.CreateDNSRecordParams) (cf.DNSRecord, error)
-    GetDNSRecord(ctx context.Context, rc *cf.ResourceContainer, recordID string) (cf.DNSRecord, error)
-    ListDNSRecords(ctx context.Context, rc *cf.ResourceContainer, params cf.ListDNSRecordsParams) ([]cf.DNSRecord, *cf.ResultInfo, error)
-    UpdateDNSRecord(ctx context.Context, rc *cf.ResourceContainer, params cf.UpdateDNSRecordParams) (cf.DNSRecord, error)
-    DeleteDNSRecord(ctx context.Context, rc *cf.ResourceContainer, recordID string) error
-}
-\`\`\`
-
-The real \`*cloudflare.API\` satisfies it for free, and tests inject a fake through a constructor field on the reconciler. Combined with \`envtest\` (a real API server and etcd, no kubelet), that covers terminal and retryable errors, adoption, recreation after external deletion, drift, and both deletion policies. Coverage on the controller and shared packages is in the high 90s. More importantly, those tests are what caught the SRV behaviour.
-
-## Status and what's next
-
-\`CloudflareAccount\` and \`Zone\` are done. \`DNSRecord\` is in review as an open PR. Tunnels and Workers come next. The longer-term plan is to generate CRD types and client wrappers from Cloudflare's OpenAPI spec, so coverage can grow without hand-writing every resource.`,
+Both are reasonable! But picking one and doing it consistently matters more than which one you pick. Adopting and then erroring on drift gives you neither. For GitOps I want the second one pretty much every time.`,
   },
   {
     slug: 'adding-a-database-resource-to-the-ack-glue-controller',
-    title: 'Adding a Database resource to the ACK Glue controller',
+    title: 'My first real PR to ACK: a Database resource for the Glue controller',
     excerpt:
-      "What it takes to add a new resource to an AWS Controllers for Kubernetes service controller — generator config, flattening Glue's nested input, and the hooks the generator can't write for you.",
+      'What adding a resource to an ACK controller actually involved: generator config, un-nesting a Glue API struct, some hand-written hooks, and a few rounds of (very good) review.',
     tags: ['Kubernetes', 'AWS', 'Go', 'Open Source'],
-    publishedAt: '2026-09-28T12:20:00Z',
-    contentMd: `[AWS Controllers for Kubernetes](https://github.com/aws-controllers-k8s) (ACK) lets you manage AWS resources as Kubernetes custom resources. The Glue controller could manage Jobs, but not the Data Catalog. So I [opened a PR](https://github.com/aws-controllers-k8s/glue-controller/pull/16) adding a \`Database\` resource. That's the natural starting point, because Databases and Tables are the minimum you need before catalogs are useful.
+    publishedAt: '2026-03-19T01:37:00Z',
+    contentMd: `The ACK Glue controller could manage Glue Jobs, but nothing in the Data Catalog. I wanted catalogs eventually, and you can't get there without Databases and Tables, so in February I [opened a PR](https://github.com/aws-controllers-k8s/glue-controller/pull/16) to add a \`Database\` resource.
 
-This post covers what adding a resource to an ACK controller actually involves.
+I used an earlier PR that added a resource to the same controller as my guide, which I'd recommend to anyone doing this. Most of what reviewers care about is "does it look like the rest of the codebase".
 
-## Most of a controller is generated
+## Most of it is generated
 
-ACK controllers are mostly code-generated from the AWS SDK's API models. Enabling a new resource starts in \`generator.yaml\`, which begins with a long \`ignore\` list of resources the controller doesn't support. Supporting Database starts by un-ignoring it:
+ACK controllers are mostly generated from the AWS SDK models. Turning on a resource starts with commenting it out of the ignore list in \`generator.yaml\`:
 
 \`\`\`yaml
 ignore:
@@ -163,17 +72,13 @@ ignore:
     - DevEndpoint
 \`\`\`
 
-Run the code generator and you get CRD types, a resource manager, delta comparison, RBAC and Helm chart updates. The interesting work is everything it *can't* infer.
+Run the generator and you get the CRD, the resource manager, delta comparison, RBAC and Helm changes. The actual work is everything the generator can't figure out.
 
-## Flattening Glue's nested input
+## Un-nesting DatabaseInput
 
-Glue's API wraps every database field in a \`DatabaseInput\` struct:
+Glue wraps every database field in a \`DatabaseInput\` struct, so my first version produced a CRD where you wrote \`spec.databaseInput.name\`. It worked, but it's awkward and nothing else in ACK looks like that. The first review question was basically "should we unwrap this into the spec?" and yeah, obviously.
 
-\`\`\`
-CreateDatabase(CatalogId, DatabaseInput{Name, Description, LocationUri, Parameters, ...}, Tags)
-\`\`\`
-
-Generated naïvely, that produces a CRD where users write \`spec.databaseInput.name\`. That's awkward, and it isn't how other ACK resources look. My first iteration shipped that shape. The maintainers' first review question was whether to unwrap it and fold the fields into the spec itself. It was the right call:
+So now it reads like a normal ACK resource:
 
 \`\`\`yaml
 apiVersion: glue.services.k8s.aws/v1alpha1
@@ -186,35 +91,11 @@ spec:
   locationURI: s3://my-bucket/analytics/
 \`\`\`
 
-In \`generator.yaml\`, that means ignoring the wrapper field on the create and update inputs, then declaring each top-level field and where to read it back from:
+Getting there meant ignoring the wrapper on the create/update inputs in \`generator.yaml\`, then declaring each top-level field and where to read it back from \`GetDatabase\`. Review also pushed back on the name \`CreateTableDefaultPermissions\` (reads like an action, not a field). We landed on \`tableDefaultPermissions\` so it's at least clear what the permissions apply to. I also dropped \`TargetDatabase\` from the spec entirely, since it can't change after creation.
 
-\`\`\`yaml
-field_paths:
-  - CreateDatabaseInput.DatabaseInput
-  - UpdateDatabaseInput.DatabaseInput
-resources:
-  Database:
-    fields:
-      Name:
-        is_primary_key: true
-        from:
-          operation: GetDatabase
-          path: Database.Name
-      LocationURI:
-        from:
-          operation: GetDatabase
-          path: Database.LocationUri
-\`\`\`
+## Hooks
 
-Review also questioned a name. Glue calls the field \`CreateTableDefaultPermissions\`, which reads like an action on a resource spec. I went with \`tableDefaultPermissions\` rather than a bare \`defaultPermissions\`, so it's clear what the permissions apply to. I also dropped a \`TargetDatabase\` field from the spec. It can't change after creation, and there's no point in a spec field users can't update.
-
-## Hooks: the code the generator can't write
-
-Since the generated request no longer contains \`DatabaseInput\`, something has to rebuild it. ACK exposes named hook points in the generated code. The Database resource uses several:
-
-- **\`sdk_create_post_build_request\`** / **\`sdk_update_post_build_request\`** call a hand-written \`buildDatabaseInput\` that maps the flat spec back into Glue's nested struct, including principal permissions and federated database settings.
-- **\`sdk_create_post_set_output\`** / **\`sdk_read_one_post_set_output\`** populate the resource's ARN. \`GetDatabase\` doesn't return one, so it's assembled from region, account ID and name.
-- **\`sdk_update_pre_build_request\`** syncs tags through the dedicated tagging API. If tags are the *only* thing that changed, it returns early without calling \`UpdateDatabase\` at all:
+Once the generated request doesn't include \`DatabaseInput\` anymore, something has to build it again. ACK has named hook points for this. I ended up with a hand-written \`buildDatabaseInput\` called from the create and update hooks, hooks that set the ARN after create and read (\`GetDatabase\` doesn't return one), and tag syncing on update that skips the update call entirely if tags were the only change:
 
 \`\`\`go
 if delta.DifferentAt("Spec.Tags") {
@@ -227,96 +108,104 @@ if !delta.DifferentExcept("Spec.Tags") {
 }
 \`\`\`
 
-## Testing against a real account
+## Testing it for real
 
-Unit tests only go so far with a generated controller. The question that matters is whether it creates a real Glue database. My loop was:
+Unit tests don't tell you much with generated code. What I actually wanted to know was whether it makes a Glue database. So: a local \`kind\` cluster, build the controller image from my branch, install the chart pointed at my own AWS account, apply a \`Database\`, then go poke at it in the console. Edit it, re-tag it, delete it. The PR also adds e2e tests to ACK's Python suite.
 
-1. Create a local \`kind\` cluster.
-2. Build the controller image from the PR branch and load it into the cluster.
-3. Install the CRDs and chart, pointed at my own AWS account.
-4. Apply a \`Database\` manifest, check it appears in Glue, then edit it, re-tag it and delete it.
+## Things that bit me
 
-The PR also adds e2e tests to ACK's Python test suite, so the maintainers' CI exercises the same lifecycle.
+At one point my PR was changing the *Jobs* CRD, which I hadn't touched. The reviewers (fairly) flagged it as a breaking change. The cause was embarrassing: I had a different Go SDK version installed than CI, so the generator produced different output. Pin your versions, and treat any generated diff you didn't expect as a bug.
 
-## What I learned
+## Where it's at
 
-- **Follow the prior art.** I modelled the change on an earlier PR that added a resource to the same controller. Consistency is most of what reviewers are checking for.
-- **Design the CRD for users, not the SDK.** The SDK's shape is an implementation detail. Flattening was more work, but it's the difference between a resource people enjoy using and one they tolerate.
-- **Your toolchain is part of the diff.** At one point my PR changed the *Jobs* CRD, which I hadn't touched. The reviewers flagged the changes as breaking. The cause was a different Go SDK version on my machine, so the generator produced different output. Pin the versions CI uses, and treat unexpected generated changes as a signal, not noise.
+Still open. There's real feedback left: set tags at create time instead of in a follow-up update (matters for tag-based IAM policies), stop hardcoding the \`aws\` partition in the ARN, and deal with a field Glue fills in after creation that shows up as drift every reconcile. Then Tables.
 
-## Still open
-
-The PR is still in review, and there's real feedback left to address:
-
-- **Tags at creation time.** \`CreateDatabase\` accepts initial tags, and setting them there (instead of in a follow-up update) matters for tag-based IAM policies.
-- **Partitions.** The ARN is built with a hard-coded \`aws\` partition. ACK resources now carry the partition in their status metadata, so that can be fixed properly.
-- **Spurious deltas.** Glue can fill in a default for one field after creation, which would show up as drift on every reconcile until the field is marked as late-initialized.
-
-Tables are the natural next step after that, and once Tables exist, catalogs become useful.`,
+Big thanks to the ACK maintainers. The reviews were fast and genuinely helpful.`,
   },
   {
-    slug: 'when-adopt-or-create-should-mean-upsert',
-    title: 'When adopt-or-create should mean upsert',
+    slug: 'building-kflare-kubernetes-operator-for-cloudflare',
+    title: 'kflare: a Cloudflare operator, and the bug my tests happily passed',
     excerpt:
-      "ACK's adopt-or-create annotation adopts an existing AWS resource — then fails if it doesn't already match your spec. Why I think the manifest should win.",
-    tags: ['Kubernetes', 'AWS', 'Open Source'],
-    publishedAt: '2026-09-28T12:30:00Z',
-    contentMd: `AWS Controllers for Kubernetes (ACK) can *adopt* an existing AWS resource instead of creating a new one. With the \`services.k8s.aws/adoption-policy: adopt-or-create\` annotation, ACK adopts the resource if it exists and creates it if it doesn't. That's exactly what you want when moving existing infrastructure under GitOps.
+      'I started a Kubernetes operator for Cloudflare over a weekend. Notes on error handling, adopting records that already exist, an SRV quirk, and an errors.As mistake my own tests hid.',
+    tags: ['Kubernetes', 'Go', 'Cloudflare'],
+    publishedAt: '2026-04-07T23:05:00Z',
+    contentMd: `I wanted my Cloudflare DNS in git, managed the same way as everything else in the cluster. There are a few community operators for this, but the ones I found were either narrow or not really maintained. So one weekend in March I started [kflare](https://github.com/JonathanGraniero/kflare).
 
-In practice, I hit a sharp edge.
+It's early. Right now there are three resources that chain together:
 
-## The problem
+- \`CloudflareAccount\` (cluster-scoped) points at a Secret with an API token and checks the token actually works.
+- \`Zone\` references an account.
+- \`DNSRecord\` references a zone. (This one is still in an open PR.)
 
-Say an SQS queue named \`my-queue\` already exists, identical to my manifest except for one field: \`visibilityTimeout\` is 300 in AWS and different in the spec.
+Since everything depends on the thing above it, a lot of each reconcile is just walking up the chain and saying exactly what's missing. \`kubectl describe\` on a broken DNSRecord tells you \`ZoneNotReady\` or \`SecretNotFound\` or \`TokenKeyMissing\` instead of a vague "failed".
 
-\`\`\`yaml
-apiVersion: sqs.services.k8s.aws/v1alpha1
-kind: Queue
-metadata:
-  name: my-queue
-  annotations:
-    services.k8s.aws/adoption-policy: adopt-or-create
-spec:
-  queueName: my-queue
-  # ...everything matches AWS except visibilityTimeout
+## Which errors to retry
+
+The decision I spent the most time on was what to do when the Cloudflare API fails. Retrying a revoked token forever is pointless. Giving up on a 503 is also wrong. I ended up with one function all the controllers use:
+
+\`\`\`go
+func IsTerminalError(err error) bool {
+    if err == nil {
+        return false
+    }
+    // 403: token is missing a permission.
+    // (cloudflare-go calls this AuthenticationError, which confused me for a while)
+    var authErr *cf.AuthenticationError
+    if errors.As(err, &authErr) {
+        return true
+    }
+    // 401: bad or revoked token (and yes, this one is AuthorizationError)
+    var authzErr *cf.AuthorizationError
+    if errors.As(err, &authzErr) {
+        return true
+    }
+    // ...404s and other 4xx request errors are terminal too.
+
+    // 429s, 5xx and network errors: let controller-runtime back off and retry.
+    return false
+}
 \`\`\`
 
-The first reconcile adopts the queue. On the next reconcile, the controller notices the spec and the deployed resource differ, and instead of reconciling the difference, it **errors out on the mismatch**. The resource is stuck: adopted, but never brought in line with the manifest.
+Terminal errors set a condition and stop. Everything else gets returned so controller-runtime's backoff handles it.
 
-## What I think should happen
+## The bug my tests didn't catch
 
-When you apply a manifest, the manifest is the source of truth. That's the whole premise of declarative infrastructure. So after adoption, the desired state should simply be applied. Adopt-or-create should behave as an **upsert**:
+The first version of that function used value types as the \`errors.As\` targets (\`var authErr cf.AuthenticationError\`). My tests also built the errors as values. So everything passed.
 
-- If the resource doesn't exist, create it from the spec.
-- If it exists, adopt it, then update it to match the spec.
+cloudflare-go returns *pointers* from its HTTP layer, though, and \`errors.As\` is picky about the exact type. In real life none of those checks would have matched, ever. A revoked token would have been retried forever.
 
-## The proposal
+I found it while writing the Zone controller. The fix was a few asterisks. The actual lesson for me was that my fake was wrong, not my code. If a test double doesn't behave like the real thing (down to pointer vs value), the tests are just agreeing with themselves.
 
-I [opened a PR against the ACK runtime](https://github.com/aws-controllers-k8s/runtime/pull/184), linked to [the community issue](https://github.com/aws-controllers-k8s/community/issues/2481). The idea was to treat the desired manifest as authoritative after adoption. The normal reconcile loop then computes a delta against the live resource and overrides the deployed values with the spec's.
+## Adopting records that already exist
 
-I opened it as a draft to get the change visible early while I finished the tests. It never made it out of draft, and the bot eventually closed it as stale. That's worth being honest about: a draft PR is not a finished contribution. If I did it again, I'd land a failing test that reproduces the bug first, because that's the most convincing thing you can put in front of maintainers.
+Nobody starts using a DNS operator with an empty Cloudflare account, so "create" can't be the default path. The DNSRecord reconciler goes:
 
-## The broader point
+1. If status has a record ID, fetch it. If it was deleted out from under us, fall through.
+2. Otherwise list records with the same name and type, and if one exists, adopt it.
+3. Only create if nothing matches.
 
-"Adopt" can mean two things:
+Importing an existing record should be a no-op, not a migration.
 
-1. **Observe:** take ownership, but treat the live resource as truth.
-2. **Converge:** take ownership, then make it match the declared state.
+## The SRV thing
 
-Both are legitimate. But a tool that adopts and then *errors* on drift gives you neither. If you're designing adoption for your own controllers, pick one of these explicitly. For GitOps workflows, it's almost always the second.`,
+After a record exists, the controller compares spec to what Cloudflare reports and sends one update if anything drifted. That works for everything except SRV records. Cloudflare generates the \`content\` field for SRV from the structured \`data\` block, so it never matches the spec byte for byte, and a naive diff "fixes" the record on every single reconcile. I skip \`content\` for SRV and compare the structured fields instead.
+
+## Testing without hitting Cloudflare
+
+Each controller takes a small interface with just the API methods it calls (the real \`*cloudflare.API\` satisfies it for free), and tests swap in a fake. Combined with \`envtest\` for a real API server, that covers the error paths, adoption, recreation, drift and deletion without an account. Coverage on the controller packages is in the high 90s.
+
+Next up is getting DNSRecord merged, then tunnels. Eventually I'd like to generate most of this from Cloudflare's OpenAPI spec instead of writing each resource by hand.`,
   },
   {
     slug: 'type-safe-apis-with-nestjs',
-    title: 'Type-safe APIs with NestJS and a shared contract package',
+    title: 'Sharing types between a NestJS API and a React app',
     excerpt:
-      'How a tiny types-only workspace package keeps a NestJS API and a React client honest with each other.',
+      'The small setup that keeps this site’s frontend and backend from disagreeing about what a post looks like.',
     tags: ['TypeScript', 'NestJS', 'React'],
-    publishedAt: '2026-09-28T12:40:00Z',
-    contentMd: `A frontend and backend in the same repo should never disagree about the shape of a response. Here's the pattern this site uses.
+    publishedAt: '2026-09-15T00:48:00Z',
+    contentMd: `This site is a NestJS API and a React app in one repo. The bug I most wanted to avoid was the boring one: the API renames a field, the frontend keeps reading the old name, and nothing complains until someone loads the page.
 
-## The contract
-
-A \`@site/shared\` package contains **only types**:
+What I landed on is a tiny workspace package, \`@site/shared\`, that only contains types:
 
 \`\`\`ts
 export interface PostSummary {
@@ -328,11 +217,9 @@ export interface PostSummary {
 }
 \`\`\`
 
-Types-only is deliberate. Neither app imports it at runtime, which sidesteps every CommonJS/ESM interop headache between NestJS and Vite.
+Types only, on purpose. Neither app imports it at runtime, which let me skip every CommonJS vs ESM headache between Nest and Vite.
 
-## The server side
-
-DTOs \`implement\` the shared input types, so validation rules and the contract can't drift:
+On the API side, DTOs implement the shared input types, so the validation rules and the contract can't quietly drift apart:
 
 \`\`\`ts
 export class CreatePostDto implements CreatePostInput {
@@ -342,9 +229,9 @@ export class CreatePostDto implements CreatePostInput {
 }
 \`\`\`
 
-Services return the shared output types via small mapper functions. That keeps Prisma models — and their \`Date\` objects — from leaking into responses.
+Services map Prisma rows into the shared output types before returning them. That keeps Prisma's \`Date\` objects and internal columns out of the responses.
 
-## The client side
+The client just uses the same types:
 
 \`\`\`ts
 export const api = {
@@ -354,40 +241,47 @@ export const api = {
 };
 \`\`\`
 
-Rename a field in the contract and both apps fail to compile. That's the whole point.`,
+Now if I rename a field, both apps fail to compile. It's not fancy (no codegen, no OpenAPI client), but for one person and two apps it's been plenty.`,
   },
   {
     slug: 'postgres-full-text-search-is-enough',
-    title: 'Postgres full-text search is probably enough',
+    title: 'Search on this blog is just Postgres',
     excerpt:
-      "Before reaching for Elasticsearch, try tsvector, a GIN index and prefix matching. For a blog, it's plenty.",
+      'I almost reached for a search service. A GIN index and a bit of prefix matching turned out to be all a small blog needs.',
     tags: ['PostgreSQL', 'Backend'],
-    publishedAt: '2026-09-28T12:50:00Z',
-    contentMd: `Search on this site is plain Postgres: no extra services, no sync jobs.
+    publishedAt: '2026-09-22T20:14:00Z',
+    contentMd: `When I added search here, my first instinct was some hosted search thing. Then I remembered this blog will have maybe dozens of posts, and Postgres already has full-text search.
 
-## The index
+The index:
 
 \`\`\`sql
 CREATE INDEX "Post_search_idx" ON "Post"
   USING GIN (to_tsvector('english', "title" || ' ' || "excerpt" || ' ' || "contentMd"));
 \`\`\`
 
-## Prefix matching for search-as-you-type
-
-\`websearch_to_tsquery\` is great for complete words, but typing \`kube\` should find *Kubernetes*. Building a prefix query does it:
+The one thing that bugged me was that \`websearch_to_tsquery\` only matches whole words, so typing \`kube\` didn't find anything about Kubernetes. For search-as-you-type that feels broken. Turning each word into a prefix match fixed it:
 
 \`\`\`ts
 const tsquery = terms.map((t) => \`\${t}:*\`).join(' & '); // "kube:* & contr:*"
 \`\`\`
 
-The terms come from a Unicode-aware regex and are passed as a bound parameter, so there's no injection risk.
+The terms get pulled out with a Unicode-aware regex and passed as a bound parameter, so nobody can sneak tsquery operators in. Results are sorted by \`ts_rank\`, then by date.
 
-## Ranking
+If this ever needs typo tolerance or real faceting I'll revisit it. For now it's one index and zero extra services, which is exactly how much infrastructure I want for a blog.`,
+  },
+  {
+    slug: 'hello-world',
+    title: 'Hello, world',
+    excerpt:
+      'I finally have a place to put things I figure out, instead of losing them in PR descriptions.',
+    tags: ['Meta'],
+    publishedAt: '2026-09-28T16:20:00Z',
+    contentMd: `A lot of what I learn ends up buried in PR descriptions, Slack threads and half-written READMEs. This site is my attempt to stop doing that.
 
-\`ts_rank\` orders results by relevance, with publish date as the tie-breaker.
+Mostly I'll be writing about Kubernetes operators, AWS and backend stuff, since that's what I spend my time on. There's already a bit here: notes on [kflare](/blog/building-kflare-kubernetes-operator-for-cloudflare), my Cloudflare operator, and on [adding a Database resource to the ACK Glue controller](/blog/adding-a-database-resource-to-the-ack-glue-controller).
 
-## When to graduate
+The site itself is a NestJS API and a React app sharing [one set of types](/blog/type-safe-apis-with-nestjs), with [search that's just Postgres](/blog/postgres-full-text-search-is-enough). It runs on a Cloudflare Worker in front of AWS Lambda, which was not the plan when I started (AWS had opinions about my account), but it costs about as much per year as a sandwich, so I'm not complaining.
 
-Reach for a dedicated search engine when you need typo tolerance, facets across millions of documents, or multilingual stemming. Until then, keep it boring.`,
+Thanks for reading. If something here is wrong, please tell me.`,
   },
 ];

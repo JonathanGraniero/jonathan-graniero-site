@@ -1,9 +1,13 @@
 /**
- * Idempotent development seed: `npm run db:seed`.
+ * Idempotent seed: `npm run db:seed`.
  *
  * - Admin user is upserted from ADMIN_EMAIL / ADMIN_PASSWORD (password rotates on re-seed).
  * - Profile and posts are insert-only, so edits made through /admin survive re-seeding.
  * - Experience, skills and projects are seeded only when their tables are empty.
+ *
+ * With SEED_SYNC=1 the profile, experience and seeded posts are overwritten from
+ * this file (content, tags and publish dates), making it the source of truth.
+ * Posts created through /admin that aren't in seed-data are never touched.
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -11,6 +15,8 @@ import * as argon2 from 'argon2';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client.ts';
 import { readingTimeMinutes, slugify } from '../src/common/utils/text.ts';
 import { seedPosts } from './seed-data/posts.ts';
+
+const SYNC = process.env.SEED_SYNC === '1';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -33,35 +39,50 @@ async function seedAdmin() {
   console.log(`✓ admin user ${email}`);
 }
 
+const profile = {
+  name: 'Jonathan Graniero',
+  headline: 'Senior software engineer at Lattice. Kubernetes operators, AWS and backend services.',
+  bio: `I'm a senior software engineer at Lattice, where I've been since 2022. Most of my background is in Java, Python and Node.js.
+
+Lately I've been spending a lot of my time on Kubernetes operators: [kflare](/blog/building-kflare-kubernetes-operator-for-cloudflare), a Cloudflare operator I'm building, and [contributions to AWS Controllers for Kubernetes](/blog/adding-a-database-resource-to-the-ack-glue-controller), mostly the Glue controller.
+
+I studied computer science at Ithaca College, got my AWS Solutions Architect Associate cert back in 2020, and live in Cambridge, MA. My GitHub bio says I'm hoping to change the world to Python one day. Still working on that.`,
+  location: 'Cambridge, MA',
+};
+
 async function seedProfile() {
   await prisma.profile.upsert({
     where: { id: 1 },
-    update: {},
+    update: SYNC ? profile : {},
     create: {
       id: 1,
-      name: 'Jonathan Graniero',
-      headline:
-        'Software engineer building Kubernetes operators, AWS infrastructure and the backend services around them.',
-      bio: `I'm a software engineer who works where application code meets infrastructure: Kubernetes controllers, AWS, and the backend services that tie them together.
-
-Lately that means building [kflare](/blog/building-kflare-kubernetes-operator-for-cloudflare), a Kubernetes operator for Cloudflare, and contributing to [AWS Controllers for Kubernetes](/blog/adding-a-database-resource-to-the-ack-glue-controller) (ACK), where I'm adding Data Catalog support to the Glue controller.
-
-I write mostly Go and Python, and TypeScript when there's an API or UI to build. This site is where I write up what I learn along the way.`,
-      location: 'Cambridge, MA',
+      ...profile,
       github: 'https://github.com/JonathanGraniero',
       linkedin: 'https://www.linkedin.com/in/jonathangraniero/',
       email: null,
       resumeUrl: null,
     },
   });
-  console.log('✓ profile');
+  console.log(`✓ profile${SYNC ? ' (synced)' : ''}`);
 }
 
 /**
- * Work history is intentionally empty until real entries are provided; the
- * About page hides the section when there are none.
+ * Work history. Only what's publicly verifiable is listed; add highlights and
+ * earlier roles here (or the About page hides nothing it doesn't know).
  */
-const experience: Prisma.ExperienceCreateManyInput[] = [];
+const experience: Prisma.ExperienceCreateManyInput[] = [
+  {
+    company: 'Lattice',
+    role: 'Senior Software Engineer',
+    location: null,
+    startDate: new Date('2022-06-01'),
+    endDate: null,
+    summary: 'Senior software engineer at Lattice.',
+    highlights: [],
+    tech: [],
+    sortOrder: 0,
+  },
+];
 
 /** Grouped on the About page. `level` is stored but not displayed. */
 const skills: Prisma.SkillCreateManyInput[] = [
@@ -151,7 +172,13 @@ const projects: Prisma.ProjectCreateManyInput[] = [
 ];
 
 async function seedCareer() {
-  if (experience.length && (await prisma.experience.count()) === 0) {
+  if (SYNC) {
+    await prisma.$transaction([
+      prisma.experience.deleteMany(),
+      prisma.experience.createMany({ data: experience }),
+    ]);
+    console.log(`✓ experience (synced, ${experience.length})`);
+  } else if (experience.length && (await prisma.experience.count()) === 0) {
     await prisma.experience.createMany({ data: experience });
     console.log('✓ experience');
   }
@@ -167,29 +194,37 @@ async function seedCareer() {
 
 async function seedPostsTable() {
   let created = 0;
+  let synced = 0;
   for (const p of seedPosts) {
+    const fields = {
+      title: p.title,
+      excerpt: p.excerpt,
+      contentMd: p.contentMd,
+      status: p.publishedAt ? ('PUBLISHED' as const) : ('DRAFT' as const),
+      publishedAt: p.publishedAt ? new Date(p.publishedAt) : null,
+      readingTimeMin: readingTimeMinutes(p.contentMd),
+    };
+    const tags = p.tags.map((name) => ({
+      where: { slug: slugify(name) },
+      create: { slug: slugify(name), name },
+    }));
     const exists = await prisma.post.findUnique({ where: { slug: p.slug }, select: { id: true } });
-    if (exists) continue;
-    await prisma.post.create({
-      data: {
-        slug: p.slug,
-        title: p.title,
-        excerpt: p.excerpt,
-        contentMd: p.contentMd,
-        status: p.publishedAt ? 'PUBLISHED' : 'DRAFT',
-        publishedAt: p.publishedAt ? new Date(p.publishedAt) : null,
-        readingTimeMin: readingTimeMinutes(p.contentMd),
-        tags: {
-          connectOrCreate: p.tags.map((name) => ({
-            where: { slug: slugify(name) },
-            create: { slug: slugify(name), name },
-          })),
-        },
-      },
-    });
-    created++;
+    if (!exists) {
+      await prisma.post.create({
+        data: { slug: p.slug, ...fields, tags: { connectOrCreate: tags } },
+      });
+      created++;
+    } else if (SYNC) {
+      await prisma.post.update({
+        where: { slug: p.slug },
+        data: { ...fields, tags: { set: [], connectOrCreate: tags } },
+      });
+      synced++;
+    }
   }
-  console.log(`✓ posts (${created} new, ${seedPosts.length - created} existing)`);
+  console.log(
+    `✓ posts (${created} new, ${synced} synced, ${seedPosts.length - created - synced} untouched)`,
+  );
 }
 
 async function main() {
