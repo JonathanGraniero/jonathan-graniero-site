@@ -91,7 +91,7 @@ All routes are prefixed with `/api`.
 
 - **State in the URL.** Blog filters, search and pagination live in the query string: filtered views are shareable and back/forward works.
 - **Loading and caching.** Each post is prefetched on hover or focus. Pages keep showing the previous results while a new page or filter loads.
-- **Code splitting.** Every route except the home page is lazy-loaded, so markdown rendering, form validation and the whole admin area load only when needed. Syntax highlighting uses a fine-grained Shiki build (16 grammars, pure-JS regex engine, no WASM) that loads the first time a code block renders.
+- **Code splitting.** Every route except the home page is lazy-loaded, so markdown rendering, form validation and the whole admin area load only when needed. Syntax highlighting uses a fine-grained Shiki build (17 grammars, pure-JS regex engine, no WASM) that loads the first time a code block renders.
 - **Safe markdown.** Raw HTML in markdown is never rendered.
 - **Admin editor:**
   - Split-pane editor with a live preview (`useDeferredValue` keeps typing smooth).
