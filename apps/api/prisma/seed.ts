@@ -5,8 +5,9 @@
  * - Profile and posts are insert-only, so edits made through /admin survive re-seeding.
  * - Experience, skills and projects are seeded only when their tables are empty.
  *
- * With SEED_SYNC=1 the profile, experience and seeded posts are overwritten from
- * this file (content, tags and publish dates), making it the source of truth.
+ * With SEED_SYNC=1 (`SEED_SYNC=1 npm run db:seed`) the profile, experience,
+ * projects and seeded posts are overwritten from this file (content, tags and
+ * publish dates), making it the source of truth.
  * Posts created through /admin that aren't in seed-data are never touched.
  */
 import 'dotenv/config';
@@ -44,7 +45,7 @@ const profile = {
   headline: 'Senior software engineer at Lattice. Kubernetes operators, AWS and backend services.',
   bio: `I'm a senior software engineer at Lattice, where I've been since 2022. Most of my background is in Java, Python and Node.js.
 
-Lately I've been spending a lot of my time on Kubernetes operators: [kflare](/blog/building-kflare-kubernetes-operator-for-cloudflare), a Cloudflare operator I'm building, and [contributions to AWS Controllers for Kubernetes](/blog/adding-a-database-resource-to-the-ack-glue-controller), mostly the Glue controller.
+Lately I've been spending a lot of my time on Kubernetes operators: [kflare](/blog/building-kflare-kubernetes-operator-for-cloudflare), a Cloudflare operator I'm building, and open-source contributions to [AWS Controllers for Kubernetes](https://github.com/aws-controllers-k8s) (ACK). So far that's a proposed [adopt-or-create upsert in the shared runtime](https://github.com/aws-controllers-k8s/runtime/pull/184) and new Data Catalog resources for the Glue controller: [Database](https://github.com/aws-controllers-k8s/glue-controller/pull/16) (merged) and [Table](https://github.com/aws-controllers-k8s/glue-controller/pull/37) (in review).
 
 I studied computer science at Ithaca College, got my AWS Solutions Architect Associate cert back in 2020, and live in Cambridge, MA. My GitHub bio says I'm hoping to change the world to Python one day. Still working on that.`,
   location: 'Cambridge, MA',
@@ -120,14 +121,24 @@ const projects: Prisma.ProjectCreateManyInput[] = [
     sortOrder: 0,
   },
   {
-    name: 'ACK Glue controller: Database resource',
+    name: 'NHL Trade Tracker',
     description:
-      'Open-source contribution to AWS Controllers for Kubernetes, adding a Glue Data Catalog Database resource with tag syncing and e2e tests.',
-    url: 'https://github.com/aws-controllers-k8s/glue-controller/pull/16',
-    repoUrl: 'https://github.com/JonathanGraniero/glue-controller',
-    tech: ['Go', 'Kubernetes', 'AWS Glue', 'ACK'],
+      'Discord bot, in active development, that posts confirmed NHL trades, waiver moves and signings to the channels following each team. A Cloudflare Worker on a cron with a D1 database, deployed with Terraform.',
+    url: null,
+    repoUrl: 'https://github.com/JonathanGraniero/NHL-Trade-Tracker',
+    tech: ['TypeScript', 'Cloudflare Workers', 'D1', 'Discord API', 'Terraform'],
     featured: true,
     sortOrder: 1,
+  },
+  {
+    name: 'AWS Controllers for Kubernetes contributions',
+    description:
+      'Open-source pull requests to ACK, from the shared runtime (a proposed adopt-or-create upsert, closed) to individual service controllers (Glue Data Catalog Database, merged, and Table, in review).',
+    url: 'https://github.com/search?q=is%3Apr+author%3AJonathanGraniero+org%3Aaws-controllers-k8s&type=pullrequests',
+    repoUrl: 'https://github.com/aws-controllers-k8s',
+    tech: ['Go', 'Kubernetes', 'AWS', 'ACK'],
+    featured: true,
+    sortOrder: 2,
   },
   {
     name: 'This site',
@@ -137,7 +148,7 @@ const projects: Prisma.ProjectCreateManyInput[] = [
     repoUrl: 'https://github.com/JonathanGraniero/jonathan-graniero-site',
     tech: ['React', 'NestJS', 'Prisma', 'PostgreSQL'],
     featured: true,
-    sortOrder: 2,
+    sortOrder: 3,
   },
   {
     name: 'SageMaker LLM deployment',
@@ -147,7 +158,7 @@ const projects: Prisma.ProjectCreateManyInput[] = [
     repoUrl: 'https://github.com/jgraniero52/ai-playground',
     tech: ['Python', 'Pulumi', 'AWS SageMaker', 'Hugging Face'],
     featured: false,
-    sortOrder: 3,
+    sortOrder: 4,
   },
   {
     name: 'find-book',
@@ -157,17 +168,17 @@ const projects: Prisma.ProjectCreateManyInput[] = [
     repoUrl: 'https://github.com/jgraniero52/find-book',
     tech: ['Go', 'CLI', 'REST APIs'],
     featured: false,
-    sortOrder: 4,
+    sortOrder: 5,
   },
   {
     name: 'Krugerrand Discord bot',
     description:
-      'Discord bot with slash commands for live gold and Krugerrand prices, runnable as a long-lived bot or as an AWS Lambda webhook handler.',
+      'Discord bot with slash commands for live gold and Krugerrand prices, plus Krugerrand facts. Runs on Cloudflare Workers with deferred replies, so it needs no server.',
     url: null,
-    repoUrl: null,
-    tech: ['Python', 'Discord API', 'AWS Lambda'],
+    repoUrl: 'https://github.com/JonathanGraniero/krugerrand-bot',
+    tech: ['TypeScript', 'Cloudflare Workers', 'Discord API'],
     featured: false,
-    sortOrder: 5,
+    sortOrder: 6,
   },
 ];
 
@@ -186,7 +197,13 @@ async function seedCareer() {
     await prisma.skill.createMany({ data: skills });
     console.log('✓ skills');
   }
-  if ((await prisma.project.count()) === 0) {
+  if (SYNC) {
+    await prisma.$transaction([
+      prisma.project.deleteMany(),
+      prisma.project.createMany({ data: projects }),
+    ]);
+    console.log(`✓ projects (synced, ${projects.length})`);
+  } else if ((await prisma.project.count()) === 0) {
     await prisma.project.createMany({ data: projects });
     console.log('✓ projects');
   }

@@ -1,6 +1,6 @@
 /**
  * Blog posts. `npm run db:seed` inserts any whose slug doesn't exist yet;
- * `npm run db:seed -- --sync` also overwrites existing ones (content, tags and
+ * `SEED_SYNC=1 npm run db:seed` also overwrites existing ones (content, tags and
  * publish date) so this file can be the source of truth for them.
  */
 export interface SeedPost {
