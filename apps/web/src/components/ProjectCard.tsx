@@ -2,7 +2,12 @@ import type { Project } from '@site/shared';
 import { CoverArt } from './art/CoverArt.tsx';
 import { Badge, Status } from './ui.tsx';
 
-const primaryLabel = (url: string) => (/\/pull\/\d+/.test(url) ? 'pull-request' : 'live');
+const primaryLabel = (url: string) =>
+  /\/pull\/\d+/.test(url)
+    ? 'pull-request'
+    : /github\.com\/search\?.*type=pullrequests/.test(url)
+      ? 'pull-requests'
+      : 'live';
 
 function ProjectLinks({ project }: { project: Project }) {
   return (
