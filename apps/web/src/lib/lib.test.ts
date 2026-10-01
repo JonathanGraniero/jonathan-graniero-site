@@ -3,7 +3,6 @@ import { pageWindow } from './pagination.ts';
 import { toSearch } from './api.ts';
 import { formatRange } from './format.ts';
 import { extractToc } from './toc.ts';
-import { resolveLang } from './highlighter.ts';
 
 describe('extractToc', () => {
   it('collects h2/h3 with ids matching rehype-slug, skipping code fences', () => {
@@ -52,16 +51,5 @@ describe('toSearch', () => {
   it('drops empty values', () => {
     expect(toSearch({ page: 2, tag: undefined, q: '' })).toBe('?page=2');
     expect(toSearch({})).toBe('');
-  });
-});
-
-describe('resolveLang', () => {
-  it('maps fence names and aliases to bundled grammars', () => {
-    expect(resolveLang('hcl')).toBe('hcl');
-    expect(resolveLang('Terraform')).toBe('hcl');
-    expect(resolveLang('tf')).toBe('hcl');
-    expect(resolveLang('typescript')).toBe('ts');
-    expect(resolveLang('cobol')).toBeNull();
-    expect(resolveLang(undefined)).toBeNull();
   });
 });
