@@ -22,6 +22,7 @@ const LANGS = {
   html: () => import('shiki/langs/html.mjs'),
   diff: () => import('shiki/langs/diff.mjs'),
   markdown: () => import('shiki/langs/markdown.mjs'),
+  hcl: () => import('shiki/langs/hcl.mjs'),
 } as const;
 
 const ALIASES: Record<string, keyof typeof LANGS> = {
@@ -36,6 +37,8 @@ const ALIASES: Record<string, keyof typeof LANGS> = {
   golang: 'go',
   docker: 'dockerfile',
   md: 'markdown',
+  terraform: 'hcl',
+  tf: 'hcl',
 };
 
 export type SupportedLang = keyof typeof LANGS;
