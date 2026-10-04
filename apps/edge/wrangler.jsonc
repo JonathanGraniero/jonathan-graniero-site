@@ -26,6 +26,8 @@
   "vars": {
     // `terraform -chdir=infra/prod output lambda_function_url`
     "API_ORIGIN": "https://p2e37kraycrvpa2lrzdi53jfva0vzrgt.lambda-url.us-east-2.on.aws",
+    // jonathangraniero.dev, whose cache is purged after admin writes.
+    "CLOUDFLARE_ZONE_ID": "0a8baa375585c7cce642d52988dbb277",
   },
   // ORIGIN_VERIFY_SECRET is a Worker secret, uploaded by CI from SSM
   // (/site/prod/ORIGIN_VERIFY_SECRET) with `wrangler deploy --secrets-file`.

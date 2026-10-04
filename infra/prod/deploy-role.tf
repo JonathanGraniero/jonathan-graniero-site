@@ -12,11 +12,14 @@ data "aws_iam_policy_document" "github_deploy" {
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.backups.arn}/*"]
   }
-  # The Worker's ORIGIN_VERIFY_SECRET is uploaded by CI from SSM at deploy time.
+  # The Worker's secrets are uploaded by CI from SSM at deploy time.
   statement {
-    sid       = "ReadOriginSecret"
-    actions   = ["ssm:GetParameter"]
-    resources = [data.aws_ssm_parameter.origin_verify_secret.arn]
+    sid     = "ReadWorkerSecrets"
+    actions = ["ssm:GetParameter"]
+    resources = [
+      data.aws_ssm_parameter.origin_verify_secret.arn,
+      data.aws_ssm_parameter.cache_purge_token.arn,
+    ]
   }
   statement {
     sid       = "DeployLambda"
