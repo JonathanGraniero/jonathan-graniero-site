@@ -95,12 +95,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Single source of truth: the same SSM secret the Lambda is configured with.
+      # Single source of truth: the origin secret is the same SSM value the
+      # Lambda is configured with; the purge token lives next to it.
       - name: Worker secrets from SSM
         run: |
-          secret="$(aws ssm get-parameter --name /site/prod/ORIGIN_VERIFY_SECRET --with-decryption --query Parameter.Value --output text)"
-          echo "::add-mask::${secret}"
-          printf 'ORIGIN_VERIFY_SECRET=%s\n' "${secret}" > "${RUNNER_TEMP}/worker.env"
+          : > "${RUNNER_TEMP}/worker.env"
+          for name in ORIGIN_VERIFY_SECRET CACHE_PURGE_TOKEN; do
+            secret="$(aws ssm get-parameter --name "/site/prod/${name}" --with-decryption --query Parameter.Value --output text)"
+            echo "::add-mask::${secret}"
+            printf '%s=%s\n' "${name}" "${secret}" >> "${RUNNER_TEMP}/worker.env"
+          done
 
       # Reconciles the Worker, its static assets and custom domain to apps/edge/wrangler.jsonc.
       - name: Deploy Worker

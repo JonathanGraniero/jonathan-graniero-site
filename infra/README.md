@@ -5,7 +5,7 @@ The production setup is **hybrid**: Cloudflare runs the edge, and AWS runs the A
 ```
 jonathangraniero.dev ──► Cloudflare Worker "jonathan-graniero-site"  (apps/edge)
                            ├─ /*      → static assets: the React build (free, unlimited)
-                           └─ /api/*  → AWS Lambda Function URL (+ X-Origin-Verify secret)
+                           └─ /api/*  → edge cache (anonymous public reads) → AWS Lambda Function URL (+ X-Origin-Verify secret)
                                           └─ NestJS via Lambda Web Adapter → Neon Postgres
 www.jonathangraniero.dev ─► 301 to the apex (Cloudflare redirect rule)
 ```
@@ -15,7 +15,7 @@ www.jonathangraniero.dev ─► 301 to the apex (Cloudflare redirect rule)
 | Piece                                                                      | Defined in                                                | Applied by                                       |
 | -------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------ |
 | Worker script, static assets, apex custom domain (DNS + certificate), vars | [`apps/edge/wrangler.jsonc`](../apps/edge/wrangler.jsonc) | `wrangler deploy` (CI)                           |
-| Worker secret `ORIGIN_VERIFY_SECRET`                                       | SSM `/site/prod/ORIGIN_VERIFY_SECRET`                     | CI: `wrangler deploy --secrets-file`             |
+| Worker secrets `ORIGIN_VERIFY_SECRET`, `CACHE_PURGE_TOKEN`                 | SSM `/site/prod/<name>`                                   | CI: `wrangler deploy --secrets-file`             |
 | Cloudflare zone settings (HTTPS, TLS), www redirect, rate limiting         | [`prod/cloudflare.tf`](prod/cloudflare.tf)                | Terraform                                        |
 | Lambda, Function URL, artifact/backup buckets, budgets, deploy IAM         | [`prod/`](prod/)                                          | Terraform                                        |
 | Terraform state bucket, GitHub OIDC provider, deploy role                  | [`bootstrap/`](bootstrap/)                                | Terraform (once, local state)                    |
@@ -30,6 +30,7 @@ www.jonathangraniero.dev ─► 301 to the apex (Cloudflare redirect rule)
   - `/site/prod/DATABASE_URL` (Neon pooled)
   - `/site/prod/JWT_SECRET`
   - `/site/prod/ORIGIN_VERIFY_SECRET`
+  - `/site/prod/CACHE_PURGE_TOKEN` (see the `jg-site-cache-purge` token below)
   - `/site/prod/ADMIN_PASSWORD`
 - **GitHub `production` environment secrets:**
   - `NEON_DIRECT_URL`: migrations and backups
@@ -47,12 +48,21 @@ www.jonathangraniero.dev ─► 301 to the apex (Cloudflare redirect rule)
 
 ### Cloudflare API tokens
 
-Two narrowly scoped tokens were minted for this project, so no personal or broad token is used in automation:
+Three narrowly scoped tokens were minted for this project, so no personal or broad token is used in automation:
 
-| Token               | Scope                                                                                                     | Stored in                                                                                        |
-| ------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `jg-site-terraform` | Zone `jonathangraniero.dev`: Zone Settings, Dynamic URL Redirects, Zone WAF, DNS (write) and Zone (read)  | SSM `/site/prod/CLOUDFLARE_TERRAFORM_TOKEN`                                                      |
-| `jg-site-ci-deploy` | Account: Workers Scripts (write). Zone: Workers Routes, DNS, SSL and Certificates (write) and Zone (read) | GitHub `production` secret `CLOUDFLARE_API_TOKEN` (copy in SSM `/site/prod/CLOUDFLARE_CI_TOKEN`) |
+| Token                 | Scope                                                                                                     | Stored in                                                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `jg-site-terraform`   | Zone `jonathangraniero.dev`: Zone Settings, Dynamic URL Redirects, Zone WAF, DNS (write) and Zone (read)  | SSM `/site/prod/CLOUDFLARE_TERRAFORM_TOKEN`                                                      |
+| `jg-site-ci-deploy`   | Account: Workers Scripts (write). Zone: Workers Routes, DNS, SSL and Certificates (write) and Zone (read) | GitHub `production` secret `CLOUDFLARE_API_TOKEN` (copy in SSM `/site/prod/CLOUDFLARE_CI_TOKEN`) |
+| `jg-site-cache-purge` | Zone `jonathangraniero.dev`: Cache Purge                                                                  | SSM `/site/prod/CACHE_PURGE_TOKEN` (uploaded to the Worker by CI)                                |
+
+### Edge caching of the API
+
+Cloudflare only caches by file extension, so `/api/*` responses were never cached even though the API sends `Cache-Control: public`. The Worker now forwards anonymous `GET`/`HEAD` requests for public routes with `cf.cacheEverything`, which makes the edge honour the API's `Cache-Control`: browsers keep `max-age`, the edge keeps `s-maxage` (1 hour for posts, profile and tags; 1 day for the feed and sitemap).
+
+- Never cached: requests with the `access_token` cookie or an `Authorization` header, `/api/admin/*`, `/api/auth/*`, `/api/health`, writes, and any response marked `private` or `no-store`.
+- After every successful write to `/api/admin/*`, the Worker purges the zone cache in the background, so edits appear immediately. If the purge fails it is logged in Workers Observability, and cached reads expire after `s-maxage`.
+- Check it with `curl -sI https://jonathangraniero.dev/api/posts | grep -i cf-cache-status`: `MISS` on the first request in a region, then `HIT`.
 
 ## Applying Terraform
 

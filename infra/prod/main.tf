@@ -71,3 +71,8 @@ data "aws_ssm_parameter" "jwt_secret" {
 data "aws_ssm_parameter" "origin_verify_secret" {
   name = "/site/prod/ORIGIN_VERIFY_SECRET"
 }
+
+# Cloudflare token (Zone → Cache Purge) the edge Worker uses after admin writes.
+data "aws_ssm_parameter" "cache_purge_token" {
+  name = "/site/prod/CACHE_PURGE_TOKEN"
+}
