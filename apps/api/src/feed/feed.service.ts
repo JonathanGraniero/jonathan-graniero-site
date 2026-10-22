@@ -10,7 +10,7 @@ const escapeXml = (s: string) =>
   );
 
 /** Public, crawlable pages of the web app. */
-const STATIC_PATHS = ['/', '/blog', '/about', '/projects', '/contact'];
+const STATIC_PATHS = ['/', '/blog', '/about', '/projects', '/projects/kflare', '/contact'];
 
 @Injectable()
 export class FeedService {
