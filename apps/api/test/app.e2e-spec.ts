@@ -125,6 +125,7 @@ describe('API (e2e)', () => {
 
       const sitemap = await request(http).get('/api/sitemap.xml').expect(200);
       expect(sitemap.text).toContain('<loc>http://localhost:5173/blog/first</loc>');
+      expect(sitemap.text).toContain('<loc>http://localhost:5173/projects/kflare</loc>');
     });
   });
 

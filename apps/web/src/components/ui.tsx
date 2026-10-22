@@ -36,6 +36,22 @@ export function ButtonLink({
   return <Link className={clsx(base, buttonStyles[variant], className)} {...props} />;
 }
 
+/** A button-styled link to another site, opened in a new tab. */
+export function ButtonAnchor({
+  variant = 'primary',
+  className,
+  ...props
+}: ComponentProps<'a'> & { variant?: Variant }) {
+  return (
+    <a
+      target="_blank"
+      rel="noopener noreferrer"
+      className={clsx(base, buttonStyles[variant], className)}
+      {...props}
+    />
+  );
+}
+
 export function Skeleton({ className }: { className?: string }) {
   return <div aria-hidden className={clsx('animate-pulse bg-line/50', className)} />;
 }

@@ -1,4 +1,6 @@
 import type { Project } from '@site/shared';
+import { Link } from 'react-router';
+import { CASE_STUDIES } from '../lib/kflare.ts';
 import { CoverArt } from './art/CoverArt.tsx';
 import { Badge, Status } from './ui.tsx';
 
@@ -7,11 +9,19 @@ const primaryLabel = (url: string) =>
     ? 'pull-request'
     : /github\.com\/search\?.*type=pullrequests/.test(url)
       ? 'pull-requests'
-      : 'live';
+      : /artifacthub\.io\/packages\/helm\//.test(url)
+        ? 'helm-chart'
+        : 'live';
 
 function ProjectLinks({ project }: { project: Project }) {
+  const caseStudy = CASE_STUDIES[project.name];
   return (
     <span className="relative z-10 flex gap-3 text-xs whitespace-nowrap">
+      {caseStudy && (
+        <Link to={caseStudy} className="text-signal hover:underline">
+          details →
+        </Link>
+      )}
       {project.url && (
         <a
           href={project.url}

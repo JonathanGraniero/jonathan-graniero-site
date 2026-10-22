@@ -42,13 +42,15 @@ async function seedAdmin() {
 
 const profile = {
   name: 'Jonathan Graniero',
-  headline: 'Senior software engineer at Lattice. Kubernetes operators, AWS and backend services.',
-  bio: `I'm a senior software engineer at Lattice, where I've been since 2022. Most of my background is in Java, Python and Node.js.
+  headline: 'Senior Software Engineer @ Lattice. k8s, aws, backend frameworks, and observability',
+  bio: `I'm a senior software engineer at Lattice, where I've been since 2022. Most of my background is in Java, Python and Typescript.
 
-Lately I've been spending a lot of my time on Kubernetes operators: [kflare](/blog/building-kflare-kubernetes-operator-for-cloudflare), a Cloudflare operator I'm building, and open-source contributions to [AWS Controllers for Kubernetes](https://github.com/aws-controllers-k8s) (ACK). So far that's a proposed [adopt-or-create upsert in the shared runtime](https://github.com/aws-controllers-k8s/runtime/pull/184) and new Data Catalog resources for the Glue controller: [Database](https://github.com/aws-controllers-k8s/glue-controller/pull/16) (merged) and [Table](https://github.com/aws-controllers-k8s/glue-controller/pull/37) (in review).
+Lately I've been spending a lot of my time on Kubernetes operators. The big one is [kflare](/projects/kflare), a Kubernetes operator for Cloudflare I've been building since March: 19 resource kinds across DNS, tunnels, Workers, the WAF and the Rules products, each tested live against a real Cloudflare account, and [v0.1.0](https://github.com/JonathanGraniero/kflare/releases/tag/v0.1.0) is out on [Artifact Hub](https://artifacthub.io/packages/helm/kflare/kflare).
 
-I studied computer science at Ithaca College, got my AWS Solutions Architect Associate cert back in 2020, and live in Cambridge, MA. My GitHub bio says I'm hoping to change the world to Python one day. Still working on that.`,
-  location: 'Cambridge, MA',
+I also contribute to [AWS Controllers for Kubernetes](https://github.com/aws-controllers-k8s) (ACK). So far that's a proposed [adopt-or-create upsert in the shared runtime](https://github.com/aws-controllers-k8s/runtime/pull/184) and new Data Catalog resources for the Glue controller: [Database](https://github.com/aws-controllers-k8s/glue-controller/pull/16) (merged) and [Table](https://github.com/aws-controllers-k8s/glue-controller/pull/37) (in review).
+
+I studied computer science at Ithaca College, got my AWS Solutions Architect Associate cert back in 2020, and live in Hudson, MA. My GitHub bio says I'm hoping to change the world to Python one day. Still working on that.`,
+  location: 'Hudson, MA',
 };
 
 async function seedProfile() {
@@ -113,10 +115,10 @@ const projects: Prisma.ProjectCreateManyInput[] = [
   {
     name: 'kflare',
     description:
-      'Kubernetes operator for Cloudflare: manage accounts, zones and DNS records as custom resources, with adoption of existing records, drift detection and GitOps-friendly workflows.',
+      'Kubernetes operator that manages Cloudflare as custom resources: zones, DNS records, tunnels, Workers, KV, R2, D1, the WAF and the Rules products. v0.1.0 is out as a Helm chart, with 19 kinds, each tested live against a real Cloudflare account in CI.',
     repoUrl: 'https://github.com/JonathanGraniero/kflare',
-    url: null,
-    tech: ['Go', 'Kubernetes', 'controller-runtime', 'Cloudflare API'],
+    url: 'https://artifacthub.io/packages/helm/kflare/kflare',
+    tech: ['Go', 'Kubernetes', 'controller-runtime', 'Cloudflare API', 'Helm'],
     featured: true,
     sortOrder: 0,
   },

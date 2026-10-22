@@ -116,26 +116,23 @@ Unit tests don't tell you much with generated code. What I actually wanted to kn
 
 At one point my PR was changing the *Jobs* CRD, which I hadn't touched. The reviewers (fairly) flagged it as a breaking change. The cause was embarrassing: I had a different Go SDK version installed than CI, so the generator produced different output. Pin your versions, and treat any generated diff you didn't expect as a bug.
 
-## Where it's at
-
-Still open. There's real feedback left: set tags at create time instead of in a follow-up update (matters for tag-based IAM policies), stop hardcoding the \`aws\` partition in the ARN, and deal with a field Glue fills in after creation that shows up as drift every reconcile. Then Tables.
 
 Big thanks to the ACK maintainers. The reviews were fast and genuinely helpful.`,
   },
   {
     slug: 'building-kflare-kubernetes-operator-for-cloudflare',
-    title: 'kflare: a Cloudflare operator, and the bug my tests happily passed',
+    title: 'kflare: a Cloudflare operator',
     excerpt:
-      'I started a Kubernetes operator for Cloudflare over a weekend. Notes on error handling, adopting records that already exist, an SRV quirk, and an errors.As mistake my own tests hid.',
+      'I started a Kubernetes operator for Cloudflare over a weekend. Notes on error handling, adopting records that already exist, an SRV quirk, and errors.',
     tags: ['Kubernetes', 'Go', 'Cloudflare'],
     publishedAt: '2026-04-07T23:05:00Z',
-    contentMd: `I wanted my Cloudflare DNS in git, managed the same way as everything else in the cluster. There are a few community operators for this, but the ones I found were either narrow or not really maintained. So one weekend in March I started [kflare](https://github.com/JonathanGraniero/kflare).
+    contentMd: `I wanted my Cloudflare DNS in git, managed the same way as everything else in my cluster. There are a few community operators for this, but the ones I found were either narrow or not really maintained. So one weekend in March I started [kflare](https://github.com/JonathanGraniero/kflare).
 
 It's early. Right now there are three resources that chain together:
 
 - \`CloudflareAccount\` (cluster-scoped) points at a Secret with an API token and checks the token actually works.
 - \`Zone\` references an account.
-- \`DNSRecord\` references a zone. (This one is still in an open PR.)
+- \`DNSRecord\` references a zone. 
 
 Since everything depends on the thing above it, a lot of each reconcile is just walking up the chain and saying exactly what's missing. \`kubectl describe\` on a broken DNSRecord tells you \`ZoneNotReady\` or \`SecretNotFound\` or \`TokenKeyMissing\` instead of a vague "failed".
 
@@ -278,9 +275,7 @@ If this ever needs typo tolerance or real faceting I'll revisit it. For now it's
     publishedAt: '2026-09-28T16:20:00Z',
     contentMd: `A lot of what I learn ends up buried in PR descriptions, Slack threads and half-written READMEs. This site is my attempt to stop doing that.
 
-Mostly I'll be writing about Kubernetes operators, AWS and backend stuff, since that's what I spend my time on. There's already a bit here: notes on [kflare](/blog/building-kflare-kubernetes-operator-for-cloudflare), my Cloudflare operator, and on [adding a Database resource to the ACK Glue controller](/blog/adding-a-database-resource-to-the-ack-glue-controller).
-
-The site itself is a NestJS API and a React app sharing [one set of types](/blog/type-safe-apis-with-nestjs), with [search that's just Postgres](/blog/postgres-full-text-search-is-enough). It runs on a Cloudflare Worker in front of AWS Lambda, which was not the plan when I started (AWS had opinions about my account), but it costs about as much per year as a sandwich, so I'm not complaining.
+The site itself is a NestJS API and a React app sharing [one set of types](/blog/type-safe-apis-with-nestjs), with [search that's just Postgres](/blog/postgres-full-text-search-is-enough). It runs on a Cloudflare Worker in front of AWS Lambda, but it costs about as much per year as a sandwich, so I'm not complaining.
 
 Thanks for reading. If something here is wrong, please tell me.`,
   },

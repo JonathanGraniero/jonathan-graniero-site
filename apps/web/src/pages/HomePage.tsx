@@ -5,7 +5,16 @@ import { Portrait } from '../components/Portrait.tsx';
 import { PostsTable, PostsTableSkeleton } from '../components/PostsTable.tsx';
 import { ProjectsTable } from '../components/ProjectCard.tsx';
 import { Seo } from '../components/Seo.tsx';
-import { ArrowLink, Container, ErrorState, SectionHeading, Skeleton } from '../components/ui.tsx';
+import {
+  ArrowLink,
+  Badge,
+  Container,
+  ErrorState,
+  SectionHeading,
+  Skeleton,
+  Status,
+} from '../components/ui.tsx';
+import { CASE_STUDIES, KFLARE, KFLARE_KIND_COUNT } from '../lib/kflare.ts';
 import { queries, useProfile } from '../lib/queries.ts';
 import { SITE } from '../lib/site.ts';
 
@@ -127,10 +136,13 @@ export function HomePage() {
             {building && (
               <Line level={2}>
                 <K>message</K>
-                <Link to="/projects" className="text-signal underline-offset-4 hover:underline">
+                <Link
+                  to={CASE_STUDIES[building.name] ?? '/projects'}
+                  className="text-signal underline-offset-4 hover:underline"
+                >
                   {building.name}
                 </Link>{' '}
-                <Comment>see /projects</Comment>
+                <Comment>see {CASE_STUDIES[building.name] ?? '/projects'}</Comment>
               </Line>
             )}
           </YamlBlock>
@@ -138,6 +150,8 @@ export function HomePage() {
       </Container>
 
       <Container className="mt-20 space-y-20">
+        <KflareSpotlight />
+
         <section aria-labelledby="recent-posts">
           <SectionHeading
             command="kubectl get posts --sort-by=.metadata.creationTimestamp"
@@ -171,5 +185,66 @@ export function HomePage() {
         </section>
       </Container>
     </>
+  );
+}
+
+/** The project I'm spending the most time on, ahead of the posts and the project list. */
+function KflareSpotlight() {
+  return (
+    <section aria-labelledby="kflare-spotlight">
+      <SectionHeading
+        command="kubectl get operator kflare"
+        action={<ArrowLink to={KFLARE.path}>the details</ArrowLink>}
+      >
+        <span id="kflare-spotlight">kflare: Cloudflare, managed from Kubernetes</span>
+      </SectionHeading>
+      <div className="grid gap-8 md:grid-cols-[1fr_22rem]">
+        <div>
+          <p className="font-serif text-lg leading-relaxed text-dim">
+            A Kubernetes operator I&apos;m building that manages Cloudflare through custom
+            resources: zones, DNS, tunnels, Workers, KV, R2, D1, the WAF and the Rules products,
+            reviewed and applied like the rest of the cluster. Every kind is tested live against a
+            real Cloudflare account in CI.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-1">
+            {KFLARE.areas.map(({ area }) => (
+              <Badge key={area}>{area}</Badge>
+            ))}
+          </div>
+        </div>
+        <dl className="grid grid-cols-[6rem_1fr] content-start gap-y-2 border border-line bg-panel p-5 text-xs">
+          <dt className="text-faint">Status:</dt>
+          <dd>
+            <Status>v{KFLARE.version} released</Status>
+          </dd>
+          <dt className="text-faint">Released:</dt>
+          <dd>{KFLARE.released}</dd>
+          <dt className="text-faint">Kinds:</dt>
+          <dd>{KFLARE_KIND_COUNT}</dd>
+          <dt className="text-faint">Install:</dt>
+          <dd>
+            <a
+              href={KFLARE.links.artifactHub}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-signal underline-offset-4 hover:underline"
+            >
+              Helm chart ↗
+            </a>
+          </dd>
+          <dt className="text-faint">Source:</dt>
+          <dd>
+            <a
+              href={KFLARE.links.repo}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-signal underline-offset-4 hover:underline"
+            >
+              GitHub ↗
+            </a>
+          </dd>
+        </dl>
+      </div>
+    </section>
   );
 }
