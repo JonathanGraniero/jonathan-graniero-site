@@ -26,7 +26,14 @@ env:
 jobs:
   api:
     name: API → Lambda
-    if: vars.AWS_DEPLOY_ROLE_ARN != '' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    # `branches: [main]` matches the head branch of the CI run, which a fork's
+    # pull request can also name main: deploy only CI runs of pushes here. The
+    # edge job needs this one, so it's skipped with it.
+    if: >-
+      vars.AWS_DEPLOY_ROLE_ARN != '' && (github.event_name == 'workflow_dispatch' || (
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository))
     # arm64 runner so argon2's native binary matches the arm64 Lambda.
     runs-on: ubuntu-24.04-arm
     environment: production
