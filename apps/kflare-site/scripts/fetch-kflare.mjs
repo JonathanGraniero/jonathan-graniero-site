@@ -53,10 +53,12 @@ if (!/^v\d+\.\d+\.\d+$/.test(tag)) throw new Error(`kflare's latest release has 
 const checkout = mkdtempSync(join(tmpdir(), 'kflare-'));
 try {
   const url = `https://github.com/${REPO}`;
-  const clone = ['clone', '--quiet', '--depth', '1', '--branch', tag, url, checkout];
-  execFileSync('git', ['-c', 'advice.detachedHead=false', ...clone], { stdio: 'inherit' });
   const git = (...args) => execFileSync('git', ['-C', checkout, ...args], { encoding: 'utf8' });
-  git('fetch', '--quiet', '--depth', '1', 'origin', 'main');
+  // Fetched by ref: newer git warns that a clone of an annotated tag "is not a commit".
+  git('init', '--quiet');
+  git('fetch', '--quiet', '--depth', '1', url, `refs/tags/${tag}`);
+  git('-c', 'advice.detachedHead=false', 'checkout', '--quiet', 'FETCH_HEAD');
+  git('fetch', '--quiet', '--depth', '1', url, 'main');
   const rev = (name) => git('rev-parse', name).trim();
   const atTag = (...path) => readFileSync(join(checkout, ...path), 'utf8');
   const yamlIn = (dir, skip = []) =>
