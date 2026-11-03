@@ -13,12 +13,8 @@ export const KFLARE = {
   requires: { kubernetes: '1.34', helm: '3.8' },
   platforms: 'amd64, arm64',
   license: 'MIT',
-  maintainer: {
-    name: 'Jonathan Graniero',
-    site: 'https://jonathangraniero.dev',
-    github: 'https://github.com/JonathanGraniero',
-    linkedin: 'https://www.linkedin.com/in/jonathangraniero/',
-  },
+  /** The holder in LICENSE. */
+  copyright: '2026 Jonathan Graniero',
   links: {
     repo: REPO,
     release: `${REPO}/releases/tag/v${VERSION}`,

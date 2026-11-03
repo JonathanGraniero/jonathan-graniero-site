@@ -2,15 +2,7 @@ import type { ReactNode } from 'react';
 import { CodeBlock, ManifestWindow } from './components/Code.tsx';
 import { Icon } from './components/Icon.tsx';
 import { SiteFooter, SiteHeader, SkipLink } from './components/Layout.tsx';
-import {
-  Arrow,
-  ButtonLink,
-  C,
-  Container,
-  ExternalLink,
-  Section,
-  WithCode,
-} from './components/ui.tsx';
+import { ButtonLink, C, Container, ExternalLink, Section, WithCode } from './components/ui.tsx';
 import {
   AREAS,
   FEATURES,
@@ -24,7 +16,7 @@ import {
   ROADMAP,
 } from './content.ts';
 
-const { links, maintainer } = KFLARE;
+const { links } = KFLARE;
 
 const textLink = 'font-medium text-accent underline-offset-4 hover:underline';
 
@@ -42,7 +34,6 @@ export function App() {
         <GetStarted />
         <Quality />
         <Roadmap />
-        <Community />
       </main>
       <SiteFooter />
     </>
@@ -393,57 +384,6 @@ function Roadmap() {
           more={{ href: links.roadmap, label: 'The full roadmap' }}
         />
       </div>
-    </Section>
-  );
-}
-
-function Community() {
-  const places = [
-    ['Discussions', 'Questions, ideas and feedback', links.discussions],
-    ['Issues', 'Bugs and feature requests', links.issues],
-    ['Contributing', 'Building, testing and the live suite', links.contributing],
-    ['Security', 'Report a vulnerability privately', links.security],
-  ] as const;
-  return (
-    <Section
-      id="community"
-      eyebrow="Community"
-      title="Built in the open"
-      intro={
-        <>
-          kflare is created and maintained by{' '}
-          <ExternalLink href={maintainer.site} className={textLink}>
-            {maintainer.name}
-          </ExternalLink>
-          , and developed on GitHub under the MIT License.
-        </>
-      }
-    >
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {places.map(([title, text, href]) => (
-          <li key={title}>
-            <ExternalLink
-              href={href}
-              arrow={false}
-              className="block h-full rounded-xl border border-line bg-panel p-5 transition-colors hover:border-dim"
-            >
-              <span className="block font-semibold">
-                {title}
-                <Arrow />
-              </span>
-              <span className="mt-1 block text-sm text-dim">{text}</span>
-            </ExternalLink>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        <ExternalLink href={maintainer.github} className={textLink}>
-          {maintainer.name} on GitHub
-        </ExternalLink>
-        <ExternalLink href={maintainer.linkedin} className={textLink}>
-          {maintainer.name} on LinkedIn
-        </ExternalLink>
-      </p>
     </Section>
   );
 }

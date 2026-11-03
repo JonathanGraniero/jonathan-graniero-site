@@ -86,6 +86,7 @@ const FOOTER = [
     heading: 'Community',
     items: [
       ['Discussions', links.discussions],
+      ['Issues', links.issues],
       ['Contributing', links.contributing],
       ['Security policy', links.security],
       ['Code of Conduct', links.conduct],
@@ -125,7 +126,7 @@ export function SiteFooter() {
         </div>
         <div className="mt-12 space-y-2 border-t border-line pt-6 text-xs leading-relaxed text-faint">
           <p>
-            © 2026 {KFLARE.maintainer.name}. kflare is open source under the{' '}
+            © {KFLARE.copyright}. kflare is open source under the{' '}
             <ExternalLink href={links.license} className="underline-offset-2 hover:underline">
               MIT License
             </ExternalLink>
