@@ -1,0 +1,81 @@
+name: Deploy kflare.dev
+
+# Ships apps/kflare-site to kflare.dev after CI passes on main (or on demand).
+# The Cloudflare token comes from SSM through the OIDC deploy role, where
+# infra/kflare put it; until AWS_DEPLOY_ROLE_ARN is set, the job is skipped.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-kflare
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # OIDC → AWS, no stored keys
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+  COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+  SITE_URL: https://kflare.dev
+
+jobs:
+  site:
+    name: Site → Cloudflare
+    # `branches: [main]` matches the head branch of the CI run, which a fork's
+    # pull request can also name main: deploy only CI runs of pushes here.
+    if: >-
+      vars.AWS_DEPLOY_ROLE_ARN != '' && (github.event_name == 'workflow_dispatch' || (
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.COMMIT }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build -w @site/kflare-site
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Reconciles the Worker, its static assets and custom domains to
+      # apps/kflare-site/wrangler.jsonc. The token stays inside this step.
+      - name: Deploy Worker
+        working-directory: apps/kflare-site
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          CLOUDFLARE_API_TOKEN="$(aws ssm get-parameter --name /site/kflare/CLOUDFLARE_CI_TOKEN --with-decryption --query Parameter.Value --output text)"
+          echo "::add-mask::${CLOUDFLARE_API_TOKEN}"
+          export CLOUDFLARE_API_TOKEN
+          npx wrangler deploy
+
+      # A new custom domain's certificate can take a minute or two on the first
+      # deploy. The page is saved before grep reads it: `curl | grep -q` fails
+      # under pipefail when grep stops reading early.
+      - name: Smoke test
+        run: |
+          retry=(--retry 10 --retry-delay 10 --retry-all-errors)
+          curl -fsS "${retry[@]}" -D "${RUNNER_TEMP}/headers" -o "${RUNNER_TEMP}/page" "${SITE_URL}/"
+          grep -q 'Cloudflare, managed from Kubernetes' "${RUNNER_TEMP}/page"
+          grep -qi '^content-security-policy:' "${RUNNER_TEMP}/headers"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "${SITE_URL}/no-such-page")" = 404
+          curl -fsS "${retry[@]}" -o /dev/null "https://www.${SITE_URL#https://}/"

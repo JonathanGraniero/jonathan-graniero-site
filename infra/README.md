@@ -126,6 +126,61 @@ curl -sI https://www.jonathangraniero.dev/about | grep -i location   # https://j
     npx wrangler dev --var API_ORIGIN:http://localhost:3000 --var ORIGIN_VERIFY_SECRET:dev
   ```
 
+## kflare.dev
+
+[kflare.dev](https://kflare.dev) is the project site for [kflare](https://github.com/JonathanGraniero/kflare): one pre-rendered React page ([`apps/kflare-site`](../apps/kflare-site)) served as static Worker assets, in the same Cloudflare account. It costs nothing beyond its domain, which is registered with Cloudflare Registrar.
+
+```
+kflare.dev, www.kflare.dev ──► Cloudflare Worker "kflare-site"  (apps/kflare-site)
+                                 └─ static assets only: index.html, 404.html, hashed JS/CSS/fonts (free, unmetered)
+```
+
+| Piece                                                                  | Defined in                                                                | Applied by             |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------- |
+| Worker, static assets, custom domains (DNS + certificates)             | [`apps/kflare-site/wrangler.jsonc`](../apps/kflare-site/wrangler.jsonc)   | `wrangler deploy` (CI) |
+| Security and cache headers                                             | [`apps/kflare-site/public/_headers`](../apps/kflare-site/public/_headers) | `wrangler deploy` (CI) |
+| CI token `kflare-site-ci-deploy`, its SSM copy, the deploy role's read | [`kflare/`](kflare/)                                                      | Terraform              |
+| Email Routing (MX, SPF and DKIM records, addresses)                    | Cloudflare dashboard                                                      | By hand                |
+
+### Shared with kflare's live tests
+
+kflare's live e2e suite runs against the kflare.dev zone. It creates and deletes DNS records, Worker routes and rules in every ruleset phase, and turns managed transforms on and off. Its hostnames and paths never touch the site's, but anything zone-wide would collide, so:
+
+- **No zone settings or rulesets in Terraform.** The suite expects every managed transform to be off when it starts, deletes the managed phase's entry point, and uses the one rate limiting rule a Free zone allows. kflare's planned `ZoneSettings` kind will be tested on this zone too. The zone keeps Cloudflare's defaults (Automatic SSL/TLS), and the site sends its own headers. `.dev` is on the HSTS preload list, so browsers only ever use HTTPS.
+- **www is a second custom domain** rather than a redirect rule. Both hosts serve the same page, whose canonical URL is the apex.
+
+Move the suite to a zone of its own before managing more of kflare.dev here.
+
+### Token
+
+| Token                   | Scope                                                                                                               | Stored in                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `kflare-site-ci-deploy` | Account: Workers Scripts (write). Zone `kflare.dev`: Workers Routes, DNS, SSL and Certificates (write), Zone (read) | SSM `/site/kflare/CLOUDFLARE_CI_TOKEN`, written by Terraform |
+
+The deploy job reads it through the existing OIDC role, so GitHub stores nothing new. Rotate it with `terraform apply -replace=cloudflare_account_token.ci_deploy`.
+
+### Applying Terraform
+
+The stack creates an API token, so it runs with a Cloudflare token that can create account API tokens (Account API Tokens: Edit) and read the kflare.dev zone, such as your own. Like `bootstrap/`, it's applied locally.
+
+```bash
+cd infra/kflare
+export CLOUDFLARE_API_TOKEN=...   # Account API Tokens: Edit, Zone: Read on kflare.dev
+terraform init -backend-config="bucket=jg-site-tfstate-623805552183"
+terraform apply
+```
+
+### Deploying and verifying
+
+[`deploy-kflare.yml`](../.github/workflows/deploy-kflare.yml) runs after CI passes on a push to `main`, or from **Actions → Deploy kflare.dev → Run workflow**. It builds the site, reads the token from SSM, runs `wrangler deploy`, then checks the page, its CSP header, the 404 and www.
+
+```bash
+curl -sI https://kflare.dev/ | grep -i content-security-policy
+curl -s -o /dev/null -w '%{http_code}\n' https://kflare.dev/no-such-page   # 404
+```
+
+To preview it locally, build it with `npm run build -w @site/kflare-site`, then run `npx wrangler dev` in `apps/kflare-site` (in Docker on older distros, as above).
+
 ## History
 
 The original design used CloudFront with its flat-rate free plan. AWS blocked CloudFront (and Route 53 registration) pending account verification, so the edge moved to Cloudflare, where the domain lives anyway. The Lambda side is unchanged.

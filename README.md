@@ -8,10 +8,12 @@ A self-hostable personal site: a blog plus pages about me and my career.
 
 ```
 apps/
-  api/        NestJS API: posts, tags, profile/career, contact, auth, RSS/sitemap, health
-  web/        React SPA: public site + lazy-loaded admin area with markdown editor
+  api/          NestJS API: posts, tags, profile/career, contact, auth, RSS/sitemap, health
+  web/          React SPA: public site + lazy-loaded admin area with markdown editor
+  edge/         Cloudflare Worker: serves web's build, proxies /api/* to the API
+  kflare-site/  kflare.dev, the kflare project site: one pre-rendered React page
 packages/
-  shared/     API contract types imported by both apps
+  shared/       API contract types imported by both apps
 ```
 
 ## Prerequisites
@@ -41,15 +43,15 @@ In development, Vite proxies `/api` to the Nest server, so the browser only ever
 
 ## Scripts
 
-| Command                          | What it does                                         |
-| -------------------------------- | ---------------------------------------------------- |
-| `npm run dev`                    | API (watch mode) and web dev server together         |
-| `npm run build`                  | Build shared → api → web                             |
-| `npm test`                       | API unit tests (Jest) + web tests (Vitest)           |
-| `npm run test:e2e`               | API end-to-end tests against the `db-test` container |
-| `npm run lint` / `typecheck`     | ESLint (flat config) / `tsc` across all workspaces   |
-| `npm run format`                 | Prettier                                             |
-| `npm run db:migrate` / `db:seed` | Prisma migrations / idempotent seed                  |
+| Command                          | What it does                                                     |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `npm run dev`                    | API (watch mode) and web dev server together                     |
+| `npm run build`                  | Build shared → api → web → kflare-site                           |
+| `npm test`                       | API unit tests (Jest) + web, edge and kflare-site tests (Vitest) |
+| `npm run test:e2e`               | API end-to-end tests against the `db-test` container             |
+| `npm run lint` / `typecheck`     | ESLint (flat config) / `tsc` across all workspaces               |
+| `npm run format`                 | Prettier                                                         |
+| `npm run db:migrate` / `db:seed` | Prisma migrations / idempotent seed                              |
 
 The e2e suite truncates every table before it runs. It refuses to run unless `NODE_ENV=test` and the database name ends in `_test`.
 
@@ -127,3 +129,7 @@ Everything is declarative:
 - **Deploys:** after CI passes on `main`, [`deploy.yml`](.github/workflows/deploy.yml) ships both, using GitHub OIDC so there are no stored AWS keys.
 
 The API package is traced from `dist/main.js` by [`scripts/package-api.sh`](scripts/package-api.sh), so only files that are actually loaded ship: about 19 MB unzipped.
+
+### kflare.dev
+
+[`apps/kflare-site`](apps/kflare-site) is pre-rendered to static HTML at build time and hydrated in the browser, so the page reads in full without JavaScript. A Worker with no script serves it from [`wrangler.jsonc`](apps/kflare-site/wrangler.jsonc). [`infra/kflare`](infra/kflare) creates the token that [`deploy-kflare.yml`](.github/workflows/deploy-kflare.yml) deploys it with after CI passes. Its facts (version, kinds, roadmap) live in [`src/content.ts`](apps/kflare-site/src/content.ts); update them with each kflare release. See [infra/README.md](infra/README.md#kflaredev).
