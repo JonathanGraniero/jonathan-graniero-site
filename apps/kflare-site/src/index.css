@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/jetbrains-mono';
+@plugin '@tailwindcss/typography';
 
 /*
  * kflare.dev: system sans for text, JetBrains Mono for code, one orange accent.
@@ -114,4 +115,22 @@
 code,
 pre {
   font-variant-ligatures: none;
+}
+
+/* The guides' markdown (prose), in the site's colors; they follow the theme. */
+@utility prose-kflare {
+  --tw-prose-body: var(--dim);
+  --tw-prose-headings: var(--ink);
+  --tw-prose-lead: var(--dim);
+  --tw-prose-links: var(--accent);
+  --tw-prose-bold: var(--ink);
+  --tw-prose-counters: var(--faint);
+  --tw-prose-bullets: var(--faint);
+  --tw-prose-hr: var(--line);
+  --tw-prose-quotes: var(--dim);
+  --tw-prose-quote-borders: var(--line);
+  --tw-prose-captions: var(--faint);
+  --tw-prose-code: var(--ink);
+  --tw-prose-th-borders: var(--line);
+  --tw-prose-td-borders: var(--line);
 }

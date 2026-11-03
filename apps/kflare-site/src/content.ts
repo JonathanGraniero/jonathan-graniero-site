@@ -21,8 +21,6 @@ export const KFLARE = {
     releases: `${REPO}/releases`,
     changelog: `${REPO}/blob/main/CHANGELOG.md`,
     quickstart: `${TAG}/README.md#quickstart-expose-a-service-through-a-cloudflare-tunnel`,
-    deploy: `${TAG}/docs/deploy.md`,
-    architecture: `${TAG}/ARCHITECTURE.md`,
     roadmap: `${REPO}/blob/main/ROADMAP.md`,
     discussions: `${REPO}/discussions`,
     issues: `${REPO}/issues`,
@@ -101,10 +99,14 @@ curl https://hello.your-domain.com`,
 
 export interface Area {
   area: string;
-  kinds: { kind: string; does: string }[];
+  kinds: { kind: string; does: string; permission: string }[];
 }
 
-/** Every kind in v0.4.1, as the README's "Resource kinds" table describes it. */
+/**
+ * Every kind in v0.4.1, as the README's "Resource kinds" table describes it,
+ * with the API token permission each needs. A kind's reference page is at
+ * /docs/reference/<kind in lower case>/.
+ */
 export const AREAS: Area[] = [
   {
     area: 'Accounts',
@@ -112,14 +114,23 @@ export const AREAS: Area[] = [
       {
         kind: 'CloudflareAccount',
         does: 'The credentials every other resource uses, cluster-scoped',
+        permission: 'Account · Account Settings · Read',
       },
     ],
   },
   {
     area: 'DNS',
     kinds: [
-      { kind: 'Zone', does: 'A zone, created or adopted, with its name servers and status' },
-      { kind: 'DNSRecord', does: 'A DNS record, or a hostname pointed at a Tunnel' },
+      {
+        kind: 'Zone',
+        does: 'A zone, created or adopted, with its name servers and status',
+        permission: 'Zone · Zone · Edit (Read to adopt)',
+      },
+      {
+        kind: 'DNSRecord',
+        does: 'A DNS record, or a hostname pointed at a Tunnel',
+        permission: 'Zone · DNS · Edit',
+      },
     ],
   },
   {
@@ -128,8 +139,13 @@ export const AREAS: Area[] = [
       {
         kind: 'Tunnel',
         does: 'A Cloudflare Tunnel, its token written to a Secret for `cloudflared`',
+        permission: 'Account · Cloudflare Tunnel · Edit',
       },
-      { kind: 'TunnelConfiguration', does: "A tunnel's routes, from hostname to Service" },
+      {
+        kind: 'TunnelConfiguration',
+        does: "A tunnel's routes, from hostname to Service",
+        permission: 'Account · Cloudflare Tunnel · Edit',
+      },
     ],
   },
   {
@@ -138,33 +154,75 @@ export const AREAS: Area[] = [
       {
         kind: 'WorkerScript',
         does: 'A Worker, from inline code or a ConfigMap, with its bindings',
+        permission: 'Account · Workers Scripts · Edit',
       },
-      { kind: 'WorkerRoute', does: 'A route from a URL pattern to a Worker' },
-      { kind: 'KVNamespace', does: 'A Workers KV namespace' },
-      { kind: 'R2Bucket', does: 'An R2 bucket; kflare never deletes its objects' },
-      { kind: 'D1Database', does: 'A D1 database' },
+      {
+        kind: 'WorkerRoute',
+        does: 'A route from a URL pattern to a Worker',
+        permission: 'Zone · Workers Routes · Edit',
+      },
+      {
+        kind: 'KVNamespace',
+        does: 'A Workers KV namespace',
+        permission: 'Account · Workers KV Storage · Edit',
+      },
+      {
+        kind: 'R2Bucket',
+        does: 'An R2 bucket; kflare never deletes its objects',
+        permission: 'Account · Workers R2 Storage · Edit',
+      },
+      { kind: 'D1Database', does: 'A D1 database', permission: 'Account · D1 · Edit' },
     ],
   },
   {
     area: 'Security',
     kinds: [
-      { kind: 'WAFCustomRule', does: 'One WAF custom rule in a zone' },
-      { kind: 'RateLimitRule', does: 'One rate limiting rule in a zone' },
-      { kind: 'ManagedRuleset', does: 'A managed ruleset deployed to a zone, with overrides' },
-      { kind: 'IPList', does: 'An IP list that rule expressions use as `$name`' },
+      {
+        kind: 'WAFCustomRule',
+        does: 'One WAF custom rule in a zone',
+        permission: 'Zone · Zone WAF · Edit',
+      },
+      {
+        kind: 'RateLimitRule',
+        does: 'One rate limiting rule in a zone',
+        permission: 'Zone · Zone WAF · Edit',
+      },
+      {
+        kind: 'ManagedRuleset',
+        does: 'A managed ruleset deployed to a zone, with overrides',
+        permission: 'Zone · Zone WAF · Edit',
+      },
+      {
+        kind: 'IPList',
+        does: 'An IP list that rule expressions use as `$name`',
+        permission: 'Account · Account Rule Lists · Edit',
+      },
     ],
   },
   {
     area: 'Rules',
     kinds: [
-      { kind: 'TransformRule', does: 'One URL rewrite or header transform rule' },
-      { kind: 'RedirectRule', does: 'One single redirect' },
-      { kind: 'CacheRule', does: 'One cache rule' },
+      {
+        kind: 'TransformRule',
+        does: 'One URL rewrite or header transform rule',
+        permission: 'Zone · Transform Rules · Edit',
+      },
+      {
+        kind: 'RedirectRule',
+        does: 'One single redirect',
+        permission: 'Zone · Single Redirect · Edit',
+      },
+      { kind: 'CacheRule', does: 'One cache rule', permission: 'Zone · Cache Rules · Edit' },
       {
         kind: 'ConfigurationRule',
         does: 'One configuration rule: SSL mode, security level and more',
+        permission: 'Zone · Config Rules · Edit',
       },
-      { kind: 'OriginRule', does: "One origin rule: the origin's destination port" },
+      {
+        kind: 'OriginRule',
+        does: "One origin rule: the origin's destination port",
+        permission: 'Zone · Origin Rules · Edit',
+      },
     ],
   },
   {
@@ -173,12 +231,41 @@ export const AREAS: Area[] = [
       {
         kind: 'ManagedTransform',
         does: "A zone's managed transforms, the headers Cloudflare adds or removes",
+        permission: 'Zone · Managed Headers · Edit',
       },
     ],
   },
 ];
 
 export const KIND_COUNT = AREAS.reduce((n, a) => n + a.kinds.length, 0);
+
+/** The docs pages' paths, here so the home page can link them without loading the docs. */
+export const DOCS = {
+  home: '/docs/',
+  deploy: '/docs/deploy/',
+  architecture: '/docs/architecture/',
+} as const;
+
+export const kindPath = (kind: string) => `/docs/reference/${kind.toLowerCase()}/`;
+
+/** The annotations every kind reads, from pkg/reconciler/base.go and the chart's values. */
+export const ANNOTATIONS: { name: string; values: string[]; text: string }[] = [
+  {
+    name: 'kflare.dev/adoption-policy',
+    values: ['adopt', 'adopt-or-create'],
+    text: 'Lets a resource take over a Cloudflare object kflare did not create: `adopt` uses an existing one and never creates, `adopt-or-create` creates one when there is none. Without it, a resource only creates, and reports an existing object as `AlreadyExists`.',
+  },
+  {
+    name: 'kflare.dev/deletion-policy',
+    values: ['retain', 'delete'],
+    text: "What deleting the resource does to its Cloudflare object: `retain` keeps it, `delete` deletes it, even one kflare adopted. Without it, an adopted object is kept, and one kflare created follows the chart's `defaultDeletionPolicy`, which is `delete`.",
+  },
+  {
+    name: 'kflare.dev/paused',
+    values: ['"true"'],
+    text: 'kflare leaves the resource alone until the annotation is removed: it makes no Cloudflare call for it, and does not finish deleting it.',
+  },
+];
 
 export type IconName =
   'shield' | 'trash' | 'link' | 'check' | 'git' | 'team' | 'pause' | 'sync' | 'seal';

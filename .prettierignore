@@ -6,3 +6,5 @@ apps/api/prisma/migrations
 package-lock.json
 apps/api/src/generated
 .wrangler
+# Copied from a kflare release by apps/kflare-site/scripts/sync-kflare.mjs
+apps/kflare-site/kflare

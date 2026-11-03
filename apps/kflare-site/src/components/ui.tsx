@@ -35,6 +35,27 @@ export function ExternalLink({
   );
 }
 
+/** A link that stays on the site for a path, and opens a new tab for anything else. */
+export function SiteLink({
+  href,
+  className,
+  children,
+}: {
+  href: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return href.startsWith('/') ? (
+    <a href={href} className={className}>
+      {children}
+    </a>
+  ) : (
+    <ExternalLink href={href} className={className}>
+      {children}
+    </ExternalLink>
+  );
+}
+
 const BUTTON = {
   primary: 'bg-accent text-accent-ink hover:opacity-90',
   secondary: 'border border-line bg-panel text-ink hover:border-dim',

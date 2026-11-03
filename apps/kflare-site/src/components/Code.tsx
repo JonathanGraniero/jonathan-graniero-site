@@ -1,14 +1,15 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 
-export type Lang = 'yaml' | 'sh' | 'console';
+export type Lang = 'yaml' | 'sh' | 'console' | 'text';
 
 const YAML_KEY = /^(\s*(?:- )?)([\w./-]+)(:)(.*)$/;
 
 /**
- * Just enough highlighting for this page's snippets: YAML keys and values,
+ * Just enough highlighting for the site's snippets: YAML keys and values,
  * comments, and the prompt and output of a console session.
  */
 function highlight(line: string, lang: Lang): ReactNode {
+  if (lang === 'text') return line;
   if (lang === 'console') {
     return line.startsWith('$ ') ? (
       <>
@@ -47,6 +48,10 @@ function Lines({ code, lang }: { code: string; lang: Lang }) {
   ));
 }
 
+/**
+ * Pages React hydrates use its onClick; the docs pages, which it doesn't, find
+ * the button by data-copy instead (components/copy.ts).
+ */
 export function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -69,11 +74,12 @@ export function CopyButton({ text }: { text: string }) {
       <button
         type="button"
         onClick={copy}
+        data-copy
         className="rounded-md px-2 py-1 text-code-dim transition-colors hover:bg-code-line hover:text-code-ink"
       >
         {copied ? 'Copied' : 'Copy'}
       </button>
-      <span role="status" className="sr-only">
+      <span role="status" className="sr-only" data-copy-status>
         {copied ? 'Copied to the clipboard' : ''}
       </span>
     </>

@@ -128,11 +128,11 @@ curl -sI https://www.jonathangraniero.dev/about | grep -i location   # https://j
 
 ## kflare.dev
 
-[kflare.dev](https://kflare.dev) is the project site for [kflare](https://github.com/JonathanGraniero/kflare): one pre-rendered React page ([`apps/kflare-site`](../apps/kflare-site)) served as static Worker assets, in the same Cloudflare account. It costs nothing beyond its domain, which is registered with Cloudflare Registrar.
+[kflare.dev](https://kflare.dev) is the project site for [kflare](https://github.com/JonathanGraniero/kflare), with its docs: pre-rendered React ([`apps/kflare-site`](../apps/kflare-site)) served as static Worker assets, in the same Cloudflare account. It costs nothing beyond its domain, which is registered with Cloudflare Registrar.
 
 ```
 kflare.dev, www.kflare.dev ──► Cloudflare Worker "kflare-site"  (apps/kflare-site)
-                                 └─ static assets only: index.html, 404.html, hashed JS/CSS/fonts (free, unmetered)
+                                 └─ static assets only: index.html, docs/**/index.html, 404.html, hashed JS/CSS/fonts (free, unmetered)
 ```
 
 | Piece                                                                  | Defined in                                                                | Applied by             |
