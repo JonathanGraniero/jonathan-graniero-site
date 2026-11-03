@@ -172,11 +172,14 @@ terraform apply
 
 ### Deploying and verifying
 
-[`deploy-kflare.yml`](../.github/workflows/deploy-kflare.yml) runs after CI passes on a push to `main`, or from **Actions → Deploy kflare.dev → Run workflow**. It builds the site, reads the token from SSM, runs `wrangler deploy`, then checks the page, its CSP header, the 404 and www.
+[`deploy-kflare.yml`](../.github/workflows/deploy-kflare.yml) runs after CI passes on a push to `main`, when [`watch-kflare.yml`](../.github/workflows/watch-kflare.yml) finds that kflare has changed, or from **Actions → Deploy kflare.dev → Run workflow**. It fetches kflare's latest release, CHANGELOG and ROADMAP from GitHub, builds the site, reads the token from SSM, runs `wrangler deploy`, then checks the page, its CSP header, the 404, www, and that `/source.json` is this build's.
+
+Every hour, `watch-kflare.yml` compares the release, CHANGELOG and ROADMAP that `/source.json` names with GitHub's, and when they differ, redeploys the commit CI last passed on `main`. GitHub turns off a public repository's schedules after 60 days without activity; re-enable it under **Actions → Watch kflare**.
 
 ```bash
 curl -sI https://kflare.dev/ | grep -i content-security-policy
 curl -s -o /dev/null -w '%{http_code}\n' https://kflare.dev/no-such-page   # 404
+curl -s https://kflare.dev/source.json   # the kflare release, CHANGELOG and ROADMAP it was built from
 ```
 
 To preview it locally, build it with `npm run build -w @site/kflare-site`, then run `npx wrangler dev` in `apps/kflare-site` (in Docker on older distros, as above).

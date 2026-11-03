@@ -5,6 +5,8 @@
 //   - index.html: the home page and 404.html, which src/main.tsx hydrates.
 //   - docs.html: every docs page, at <path>index.html. They stay static; their
 //     only script is src/docs-client.ts.
+// Then source.json says which kflare release, CHANGELOG and ROADMAP the pages
+// show, for .github/workflows/watch-kflare.yml to compare with GitHub.
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 
 const SITE = 'https://kflare.dev';
@@ -12,7 +14,7 @@ const PLACEHOLDER = '<!--app-html-->';
 const dist = new URL('../dist/', import.meta.url);
 const serverBuild = new URL('../dist-server/', import.meta.url);
 
-const { render, renderDocs } = await import(new URL('entry-server.js', serverBuild).href);
+const { render, renderDocs, source } = await import(new URL('entry-server.js', serverBuild).href);
 
 async function template(name) {
   const html = await readFile(new URL(name, dist), 'utf8');
@@ -71,5 +73,9 @@ await writeFile(
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`,
 );
 
+await writeFile(new URL('source.json', dist), `${JSON.stringify(source, null, 2)}\n`);
+
 await rm(serverBuild, { recursive: true, force: true });
-console.log(`Pre-rendered the home page, 404.html and ${pages.length} docs pages`);
+console.log(
+  `Pre-rendered the home page, 404.html and ${pages.length} docs pages, for kflare ${source.tag}`,
+);

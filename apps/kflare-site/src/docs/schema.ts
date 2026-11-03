@@ -54,6 +54,15 @@ export function prose(text = ''): string {
     .join('\n\n');
 }
 
+/** What a CRD's description says about its kind. */
+export function crdSummary(kind: string, description?: string): string {
+  // controller-gen opens with "Zone is the Schema for the zones API. It
+  // represents…": keep what follows, about the kind itself.
+  return prose(description)
+    .replace(/^\S+ is the Schema for the \S+ API\.\s*/, '')
+    .replace(/^It /, `${kind} `);
+}
+
 function mapValues(schema: Schema): Schema | undefined {
   return typeof schema.additionalProperties === 'object' ? schema.additionalProperties : undefined;
 }

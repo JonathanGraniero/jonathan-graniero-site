@@ -1,11 +1,18 @@
 import { parse, parseAllDocuments } from 'yaml';
-import source from '../../kflare/source.json';
-import { AREAS, kindPath } from '../content.ts';
-import { annotatedExample, flatten, ownRules, prose, type Field, type Schema } from './schema.ts';
+import { AREAS, RELEASE, kindPath } from '../content.ts';
+import type { Kind } from '../release/digest.ts';
+import {
+  annotatedExample,
+  crdSummary,
+  flatten,
+  ownRules,
+  type Field,
+  type Schema,
+} from './schema.ts';
 
-// The kflare release in kflare/ (scripts/sync-kflare.mjs). Only the
-// pre-render reads it: docs pages are static HTML, never hydrated, so none of
-// this reaches the browser.
+// The kflare release in kflare/, fetched from GitHub by
+// scripts/fetch-kflare.mjs. Only the pre-render reads it: docs pages are
+// static HTML, never hydrated, so none of this reaches the browser.
 const raw = (files: Record<string, string>) =>
   Object.entries(files).map(([path, text]) => ({
     file: path.slice(path.lastIndexOf('/') + 1),
@@ -34,7 +41,7 @@ const GUIDE_FILES = raw(
   }),
 );
 
-export const SOURCE: { repo: string; tag: string; commit: string } = source;
+export const SOURCE = RELEASE.source;
 
 export { kindPath };
 
@@ -46,7 +53,7 @@ export function repoUrl(path: string, hash = ''): string {
 
 export function guideSource(name: 'deploy' | 'architecture'): string {
   const guide = GUIDE_FILES.find((f) => f.file === `${name}.md`);
-  if (!guide) throw new Error(`kflare/guides/${name}.md is missing: run scripts/sync-kflare.mjs`);
+  if (!guide) throw new Error(`kflare/guides/${name}.md is missing: run scripts/fetch-kflare.mjs`);
   return guide.text;
 }
 
@@ -68,13 +75,10 @@ export interface Column {
   description?: string;
 }
 
-export interface KindDoc {
-  kind: string;
+export interface KindDoc extends Kind {
   /** Its page: /docs/reference/<slug>/. */
   slug: string;
   area: string;
-  does: string;
-  permission: string;
   apiVersion: string;
   scope: string;
   plural: string;
@@ -102,7 +106,7 @@ interface Crd {
   };
 }
 
-function kindDoc(crd: Crd, area: string, does: string, permission: string): KindDoc {
+function kindDoc(crd: Crd, area: string, { does, permission }: Kind): KindDoc {
   const { group, scope, names, versions } = crd.spec;
   const [version] = versions;
   if (!version) throw new Error(`${names.kind} has no version`);
@@ -128,11 +132,7 @@ function kindDoc(crd: Crd, area: string, does: string, permission: string): Kind
     scope,
     plural: names.plural,
     shortNames: names.shortNames ?? [],
-    // controller-gen opens with "Zone is the Schema for the zones API. It
-    // represents…": keep what follows, about the kind itself.
-    summary: prose(root.description)
-      .replace(/^\S+ is the Schema for the \S+ API\.\s*/, '')
-      .replace(/^It /, `${names.kind} `),
+    summary: crdSummary(names.kind, root.description),
     spec: flatten(spec),
     rules: ownRules(spec),
     // A condition's own fields are Kubernetes' standard ones.
@@ -151,16 +151,19 @@ function kindDoc(crd: Crd, area: string, does: string, permission: string): Kind
   };
 }
 
+// AREAS comes from these same CRDs (src/release/digest.ts), so they agree
+// unless kflare/ was fetched in part.
 function load(): KindDoc[] {
   const crds = CRDS.map(({ text }) => parse(text) as Crd);
   const listed = AREAS.flatMap((a) => a.kinds.map((k) => k.kind));
   const extra = crds.map((c) => c.spec.names.kind).filter((k) => !listed.includes(k));
-  if (extra.length) throw new Error(`kinds missing from AREAS in content.ts: ${extra.join(', ')}`);
+  if (extra.length) throw new Error(`kinds missing from kflare/release.json: ${extra.join(', ')}`);
   return AREAS.flatMap(({ area, kinds }) =>
-    kinds.map(({ kind, does, permission }) => {
-      const crd = crds.find((c) => c.spec.names.kind === kind);
-      if (!crd) throw new Error(`${kind} is in content.ts but kflare/crds has no CRD for it`);
-      return kindDoc(crd, area, does, permission);
+    kinds.map((kind) => {
+      const crd = crds.find((c) => c.spec.names.kind === kind.kind);
+      if (!crd)
+        throw new Error(`${kind.kind} is in kflare/release.json but kflare/crds has no CRD`);
+      return kindDoc(crd, area, kind);
     }),
   );
 }

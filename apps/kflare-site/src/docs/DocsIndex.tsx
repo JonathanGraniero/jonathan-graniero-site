@@ -78,7 +78,9 @@ export function DocsIndex() {
                     <code className="font-mono text-sm font-medium text-accent">{kind}</code>
                     <span className="text-sm text-dim">
                       <WithCode text={does} />
-                      <span className="mt-0.5 block text-xs text-faint">Token: {permission}</span>
+                      {permission && (
+                        <span className="mt-0.5 block text-xs text-faint">Token: {permission}</span>
+                      )}
                     </span>
                   </a>
                 </li>

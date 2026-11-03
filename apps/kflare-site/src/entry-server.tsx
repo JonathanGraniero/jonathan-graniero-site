@@ -1,6 +1,10 @@
 import { renderToString } from 'react-dom/server';
+import { RELEASE } from './content.ts';
 import { docPages } from './docs/pages.tsx';
 import { PAGES, type PageName } from './pages.ts';
+
+/** What the pages were rendered from, which scripts/prerender.mjs publishes as /source.json. */
+export const source = RELEASE.source;
 
 /** Renders a page the browser hydrates (index.html's) at build time, for scripts/prerender.mjs. */
 export function render(name: PageName): string {

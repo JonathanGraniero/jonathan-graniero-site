@@ -18,8 +18,8 @@ function paths(value: unknown, prefix = '', out = new Set<string>()): Set<string
   return out;
 }
 
-describe('the vendored kflare release', () => {
-  it('is the release content.ts describes', () => {
+describe('the kflare release in kflare/', () => {
+  it('is the release the site advertises', () => {
     expect(SOURCE.tag).toBe(`v${KFLARE.version}`);
   });
 
