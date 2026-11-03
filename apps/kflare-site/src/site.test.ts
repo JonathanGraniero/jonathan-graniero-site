@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { KIND_COUNT } from './content.ts';
 import { render, renderDocs } from './entry-server.tsx';
 
 // Every pre-rendered page, as scripts/prerender.mjs writes them.
@@ -41,5 +42,5 @@ describe.each(pages.map((p) => [p.path, p.doc] as const))('%s', (path, doc) => {
 it('pre-renders an overview, two guides and a page per kind', () => {
   const docs = pages.map((p) => p.path).filter((p) => p.startsWith('/docs/'));
   expect(docs.slice(0, 3)).toEqual(['/docs/', '/docs/deploy/', '/docs/architecture/']);
-  expect(docs.filter((p) => p.startsWith('/docs/reference/'))).toHaveLength(20);
+  expect(docs.filter((p) => p.startsWith('/docs/reference/'))).toHaveLength(KIND_COUNT);
 });

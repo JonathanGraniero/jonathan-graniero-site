@@ -45,7 +45,7 @@ export function KindPage({ doc }: { doc: KindDoc }) {
     ['API version', doc.apiVersion],
     ['Scope', doc.scope],
     ['Short name', doc.shortNames.join(', ') || '—'],
-    ['Token permission', doc.permission],
+    ['Token permission', doc.permission ?? '—'],
   ];
   return (
     <article>

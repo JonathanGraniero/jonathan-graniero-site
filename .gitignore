@@ -26,3 +26,6 @@ infra/prod/.build/
 # Wrangler local state
 .wrangler/
 .dev.vars
+
+# kflare.dev's copy of kflare, fetched from GitHub at build time
+apps/kflare-site/kflare/

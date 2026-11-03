@@ -1,0 +1,73 @@
+name: Watch kflare
+
+# kflare.dev shows kflare's latest release, and what main's CHANGELOG.md and
+# ROADMAP.md say comes next, as GitHub had them when the site was built
+# (apps/kflare-site/scripts/fetch-kflare.mjs). Every hour this compares the
+# live site's /source.json with GitHub, and when kflare has moved on, runs
+# deploy-kflare.yml on the commit CI last passed on main.
+#
+# GitHub turns off a public repository's schedules after 60 days without
+# activity: Actions → Watch kflare → Enable workflow turns this one back on.
+on:
+  schedule:
+    # Off the hour, when GitHub delays and drops scheduled runs.
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: watch-kflare
+  cancel-in-progress: true
+
+permissions:
+  actions: write # to run deploy-kflare.yml
+  contents: read
+
+env:
+  SITE_URL: https://kflare.dev
+  KFLARE_REPO: JonathanGraniero/kflare
+
+jobs:
+  check:
+    name: Redeploy kflare.dev if kflare changed
+    # Like the deploy, idle until the deploy role is set up.
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Compare the live site with GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # What a build would read now: the release marked Latest, and the
+          # blobs of main's CHANGELOG.md and ROADMAP.md.
+          blob() { gh api "repos/${KFLARE_REPO}/contents/$1?ref=main" --jq .sha; }
+          tag="$(gh api "repos/${KFLARE_REPO}/releases/latest" --jq .tag_name)"
+          changelog="$(blob CHANGELOG.md)"
+          roadmap="$(blob ROADMAP.md)"
+          now="${tag} ${changelog} ${roadmap}"
+
+          status="$(curl -sS --retry 3 -o "${RUNNER_TEMP}/source.json" -w '%{http_code}' "${SITE_URL}/source.json")"
+          case "$status" in
+            200) live="$(jq -r '"\(.tag) \(.changelog) \(.roadmap)"' "${RUNNER_TEMP}/source.json")" ;;
+            # Built before the site published what it was built from.
+            404) live='unknown' ;;
+            *)
+              echo "::error::${SITE_URL}/source.json answered ${status}"
+              exit 1
+              ;;
+          esac
+          echo "Live: ${live}"
+          echo "Now:  ${now}"
+          if [ "$live" = "$now" ]; then exit 0; fi
+
+          # Redeploy what's live, the commit CI last passed for a push to
+          # main, rather than a head whose CI may have failed.
+          commit="$(gh run list --workflow ci.yml --branch main --event push --status success \
+            --limit 1 --json headSha --jq '.[0].headSha // empty')"
+          if [ -z "$commit" ]; then
+            echo "::error::no CI run has passed for a push to main"
+            exit 1
+          fi
+          gh workflow run deploy-kflare.yml --ref main -f commit="$commit"
+          echo "::notice::kflare changed: deploying ${commit} with ${now}"

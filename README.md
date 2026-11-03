@@ -134,10 +134,15 @@ The API package is traced from `dist/main.js` by [`scripts/package-api.sh`](scri
 
 [`apps/kflare-site`](apps/kflare-site) is pre-rendered to static HTML at build time, so every page reads in full without JavaScript. The home page is then hydrated; the docs pages stay static, with a few lines of script for their copy buttons. A Worker with no script serves it all from [`wrangler.jsonc`](apps/kflare-site/wrangler.jsonc). [`infra/kflare`](infra/kflare) creates the token that [`deploy-kflare.yml`](.github/workflows/deploy-kflare.yml) deploys it with after CI passes. See [infra/README.md](infra/README.md#kflaredev).
 
-The docs at `/docs/` are built from a kflare release copied into [`apps/kflare-site/kflare`](apps/kflare-site/kflare): a reference page per kind from its CRD and samples, with an example that shows every field, and the deploy guide and ARCHITECTURE.md from their markdown. With each kflare release:
+The site follows kflare with no edits here. [`scripts/fetch-kflare.mjs`](apps/kflare-site/scripts/fetch-kflare.mjs) fetches from GitHub, into `apps/kflare-site/kflare/` (not committed):
+
+- **The latest published release**: its CRDs, samples and guides, which `/docs/` is built from (a reference page per kind, with an example that shows every field, and the deploy guide and ARCHITECTURE.md from their markdown), and from its README and chart, the version, requirements and resource kinds on the home page.
+- **main's CHANGELOG.md and ROADMAP.md**: the changes since that release, under "In the next release", and the roadmap's "Next" and the kinds' areas.
+
+[`src/release/digest.ts`](apps/kflare-site/src/release/digest.ts) reads them, so kflare's docs keep a few conventions: each kind has a row in README.md's "Resource kinds" table and an area in ROADMAP.md's "Done" table (a kind missing from either is still listed, with a warning in the build), each change in CHANGELOG.md opens with a bold sentence, and each release has its `## vX.Y.Z` section. CI and deploys fetch first, and [`watch-kflare.yml`](.github/workflows/watch-kflare.yml) redeploys the site within the hour of a release or a change to either file (see [infra/README.md](infra/README.md#deploying-and-verifying)).
 
 ```bash
-npm run sync-kflare -w @site/kflare-site -- v0.5.0   # copies the release's CRDs, samples and guides
+npm run fetch-kflare -w @site/kflare-site   # build, test and dev fetch only when kflare/ is missing
 ```
 
-Then update [`src/content.ts`](apps/kflare-site/src/content.ts) (version, kinds, roadmap) to the same release; a test fails until they match, and the build fails if the release has a kind content.ts doesn't list. `npm run build -w @site/kflare-site` and `npx wrangler dev` in `apps/kflare-site` preview it; the Vite dev server shows only the home page.
+`npm run build -w @site/kflare-site` and `npx wrangler dev` in `apps/kflare-site` preview it; the Vite dev server shows only the home page.

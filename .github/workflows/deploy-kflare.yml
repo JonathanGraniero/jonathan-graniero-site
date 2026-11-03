@@ -1,14 +1,20 @@
 name: Deploy kflare.dev
 
-# Ships apps/kflare-site to kflare.dev after CI passes on main (or on demand).
-# The Cloudflare token comes from SSM through the OIDC deploy role, where
-# infra/kflare put it; until AWS_DEPLOY_ROLE_ARN is set, the job is skipped.
+# Ships apps/kflare-site to kflare.dev after CI passes on main, when
+# watch-kflare.yml sees that kflare has changed, or on demand. The Cloudflare
+# token comes from SSM through the OIDC deploy role, where infra/kflare put
+# it; until AWS_DEPLOY_ROLE_ARN is set, the job is skipped.
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit to deploy, if not the branch's head
+        type: string
+        required: false
 
 concurrency:
   group: deploy-kflare
@@ -20,7 +26,7 @@ permissions:
 
 env:
   AWS_REGION: us-east-2
-  COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+  COMMIT: ${{ github.event.workflow_run.head_sha || inputs.commit || github.sha }}
   SITE_URL: https://kflare.dev
 
 jobs:
@@ -47,6 +53,12 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # kflare's latest release, and main's CHANGELOG and ROADMAP, as of now.
+      - name: Fetch kflare from GitHub
+        run: npm run fetch-kflare -w @site/kflare-site
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Build
         run: npm run build -w @site/kflare-site
@@ -81,3 +93,16 @@ jobs:
           curl -fsS "${retry[@]}" -o /dev/null "https://www.${SITE_URL#https://}/"
           curl -fsS -o "${RUNNER_TEMP}/docs" "${SITE_URL}/docs/reference/dnsrecord/"
           grep -q 'DNSRecord reference' "${RUNNER_TEMP}/docs"
+
+      # The site now says it shows the kflare release, CHANGELOG and ROADMAP
+      # this run fetched, which is what watch-kflare.yml compares with GitHub.
+      # A new version can take a few seconds to reach every location.
+      - name: Check the live site is this build
+        run: |
+          for _ in 1 2 3 4 5 6; do
+            curl -fsS -o "${RUNNER_TEMP}/source.json" "${SITE_URL}/source.json" &&
+              cmp -s "${RUNNER_TEMP}/source.json" apps/kflare-site/dist/source.json && exit 0
+            sleep 10
+          done
+          echo "::error::${SITE_URL}/source.json is not this build's"
+          exit 1

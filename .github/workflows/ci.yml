@@ -9,6 +9,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: Lint, typecheck, test, build
@@ -46,6 +49,13 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      # kflare.dev is built from kflare's latest release, and main's CHANGELOG
+      # and ROADMAP; the token lifts the API's limit for anonymous calls.
+      - name: Fetch kflare from GitHub
+        run: npm run fetch-kflare -w @site/kflare-site
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Typecheck
         run: npm run typecheck

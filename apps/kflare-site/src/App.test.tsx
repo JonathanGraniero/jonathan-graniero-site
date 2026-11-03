@@ -1,8 +1,16 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { App } from './App.tsx';
-import { AREAS, KFLARE, KIND_COUNT, QUICKSTART } from './content.ts';
+import { App, RoadmapList } from './App.tsx';
+import {
+  AREAS,
+  KFLARE,
+  KIND_COUNT,
+  NEXT_RELEASE,
+  QUICKSTART,
+  ROADMAP,
+  kindPath,
+} from './content.ts';
 import { NotFound } from './NotFound.tsx';
 
 describe('App', () => {
@@ -45,7 +53,9 @@ describe('App', () => {
     expect(new Set(kinds).size).toBe(kinds.length);
     expect(kinds).toHaveLength(KIND_COUNT);
     const section = within(screen.getByRole('region', { name: /One operator/ }));
-    for (const kind of kinds) expect(section.getByText(kind)).toBeInTheDocument();
+    for (const kind of kinds) {
+      expect(section.getByRole('link', { name: kind })).toHaveAttribute('href', kindPath(kind));
+    }
   });
 
   it('installs the version it advertises', () => {
@@ -56,6 +66,14 @@ describe('App', () => {
       'href',
       `${KFLARE.links.repo}/releases/tag/v${KFLARE.version}`,
     );
+  });
+
+  it("lists what has merged since the release, and the roadmap's next", () => {
+    render(<App />);
+    const section = screen.getByRole('region', { name: /Where it's going/ });
+    expect(within(section).getByText(`Merged since v${KFLARE.version}`)).toBeInTheDocument();
+    const items = [...NEXT_RELEASE.flatMap((g) => g.items), ...ROADMAP];
+    for (const item of items) expect(section).toHaveTextContent(item.replace(/`/g, ''));
   });
 
   it('copies a snippet to the clipboard', async () => {
@@ -74,6 +92,29 @@ describe('App', () => {
       '',
       '',
     ]);
+  });
+});
+
+describe('RoadmapList', () => {
+  const card = { title: 'In the next release', note: 'Merged since v1.2.3' };
+  const more = { href: 'https://example.com/', label: 'Changelog' };
+
+  it('says so when there is nothing to list, as right after a release', () => {
+    render(<RoadmapList {...card} groups={[]} empty="Nothing yet" more={more} />);
+    expect(screen.getByText('Nothing yet')).toBeInTheDocument();
+    expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('heads the items the changelog lists under a heading', () => {
+    const groups = [
+      { heading: 'The controller', items: ['A `CloudflareAccount` can limit namespaces'] },
+      { items: ['Tagged, not yet published'] },
+    ];
+    render(<RoadmapList {...card} groups={groups} more={more} />);
+    expect(screen.getByRole('heading', { level: 4, name: 'The controller' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 4 })).toHaveLength(1);
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByText('CloudflareAccount').tagName).toBe('CODE');
   });
 });
 

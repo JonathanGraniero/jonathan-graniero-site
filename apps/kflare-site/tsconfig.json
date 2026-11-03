@@ -9,6 +9,8 @@
     "noEmit": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    // scripts/fetch-kflare.mjs runs src/release/digest.ts in Node, which strips its types.
+    "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,
     "declaration": false,
     "types": ["vite/client"]
