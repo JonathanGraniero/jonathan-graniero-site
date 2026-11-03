@@ -1,5 +1,6 @@
 node_modules
 dist
+dist-server
 coverage
 apps/api/prisma/migrations
 package-lock.json

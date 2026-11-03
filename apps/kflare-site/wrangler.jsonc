@@ -1,0 +1,26 @@
+// Cloudflare Worker for kflare.dev. This file is the site's infrastructure-as-
+// code: `wrangler deploy` reconciles the Worker, its static assets and custom
+// domains to match it. infra/kflare creates the token CI deploys it with.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "kflare-site",
+  "compatibility_date": "2026-09-01",
+
+  // Workers Custom Domains: Cloudflare creates each DNS record and edge
+  // certificate. www serves the same page, whose canonical URL is the apex; a
+  // redirect rule would share the zone's rulesets with kflare's live e2e suite
+  // (see infra/README.md).
+  "routes": [
+    { "pattern": "kflare.dev", "custom_domain": true },
+    { "pattern": "www.kflare.dev", "custom_domain": true },
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // No script: every request is a static asset, free and unmetered. dist/ is
+  // the pre-rendered build; public/_headers sets security and cache headers.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+  },
+}

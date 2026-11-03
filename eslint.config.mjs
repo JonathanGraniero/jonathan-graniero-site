@@ -8,6 +8,8 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist',
+      '**/dist-server',
+      '**/.wrangler',
       '**/coverage',
       '**/node_modules',
       'apps/api/src/generated',
@@ -35,7 +37,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/web/**/*.{ts,tsx}'],
+    files: ['apps/web/**/*.{ts,tsx}', 'apps/kflare-site/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
     plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh },
     rules: {
@@ -50,7 +52,7 @@ export default tseslint.config(
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
-    files: ['scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'apps/kflare-site/scripts/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
   {

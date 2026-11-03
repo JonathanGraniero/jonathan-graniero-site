@@ -1,0 +1,117 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/jetbrains-mono';
+
+/*
+ * kflare.dev: system sans for text, JetBrains Mono for code, one orange accent.
+ * Light and dark follow the visitor's system setting. There is no toggle, so
+ * no inline script, which keeps the Content-Security-Policy in public/_headers
+ * strict. Code panels stay dark in both themes.
+ */
+@theme inline {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-dim: var(--dim);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-code: var(--code);
+  --color-code-line: var(--code-line);
+  --color-code-ink: var(--code-ink);
+  --color-code-dim: var(--code-dim);
+  --color-code-key: var(--code-key);
+  --color-code-value: var(--code-value);
+  --color-code-ok: var(--code-ok);
+}
+
+:root {
+  --bg: oklch(0.985 0.003 248);
+  --panel: oklch(1 0 0);
+  --line: oklch(0.915 0.012 255);
+  --ink: oklch(0.21 0.04 266);
+  --dim: oklch(0.45 0.04 257);
+  --faint: oklch(0.56 0.04 257);
+  /* Orange 700: 5.2:1 on white, for text and for white text on it. */
+  --accent: oklch(0.553 0.195 38.4);
+  --accent-ink: oklch(1 0 0);
+  --accent-soft: oklch(0.954 0.038 75);
+  --code: oklch(0.2 0.035 265);
+  --code-line: oklch(0.3 0.035 262);
+  --code-ink: oklch(0.93 0.01 255);
+  --code-dim: oklch(0.68 0.03 257);
+  --code-key: oklch(0.8 0.1 230);
+  --code-value: oklch(0.86 0.11 80);
+  --code-ok: oklch(0.8 0.15 155);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: oklch(0.155 0.03 266);
+    --panel: oklch(0.195 0.035 265);
+    --line: oklch(0.29 0.035 262);
+    --ink: oklch(0.96 0.006 255);
+    --dim: oklch(0.76 0.025 257);
+    --faint: oklch(0.64 0.03 257);
+    /* Orange 400, with near-black text on it. */
+    --accent: oklch(0.75 0.183 55.9);
+    --accent-ink: oklch(0.2 0.05 45);
+    --accent-soft: oklch(0.27 0.06 45);
+    --code: oklch(0.13 0.03 266);
+    --code-line: oklch(0.27 0.035 262);
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  html {
+    @apply bg-bg text-ink antialiased;
+    font-family: var(--font-sans);
+    scroll-padding-top: 4.5rem;
+  }
+  ::selection {
+    @apply bg-accent text-accent-ink;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+}
+
+/* The hero's backdrop: a faint grid that fades out toward the bottom. */
+@utility grid-backdrop {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in oklch, var(--line) 60%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--line) 60%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 2.5rem 2.5rem;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 0%, black 40%, transparent 100%);
+}
+
+/* Ligatures (e.g. != drawn as ≠) misrepresent what code says. */
+code,
+pre {
+  font-variant-ligatures: none;
+}
