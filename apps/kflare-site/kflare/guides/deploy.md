@@ -1,0 +1,910 @@
+# Deploying kflare with Helm
+
+This guide installs the kflare controller into a Kubernetes cluster, connects it to a Cloudflare
+account, and covers running it in production, upgrades, uninstalling and troubleshooting.
+
+- [Requirements](#requirements)
+- [1. Create a Cloudflare API token](#1-create-a-cloudflare-api-token)
+- [2. Install the chart](#2-install-the-chart)
+  - [With Argo CD or Flux](#with-argo-cd-or-flux)
+- [3. Connect your Cloudflare account](#3-connect-your-cloudflare-account)
+- [4. Manage Cloudflare resources](#4-manage-cloudflare-resources)
+- [Configuration](#configuration)
+- [Security model](#security-model)
+- [Verifying a release](#verifying-a-release)
+- [Running in production](#running-in-production)
+  - [Monitoring](#monitoring)
+  - [Network access](#network-access)
+  - [Protecting objects that must outlive their manifests](#protecting-objects-that-must-outlive-their-manifests)
+  - [Moving to a new cluster](#moving-to-a-new-cluster)
+- [Upgrading](#upgrading)
+- [Uninstalling](#uninstalling)
+- [Troubleshooting](#troubleshooting)
+
+## Requirements
+
+- Kubernetes 1.34 or newer. The chart refuses to install on older clusters.
+- Helm 3.8 or newer (OCI chart support), or a GitOps tool that installs Helm charts from an OCI registry, such as
+  Argo CD or Flux.
+- One kflare installation per cluster. A second release would reconcile the same resources.
+- Outbound HTTPS from the controller to `api.cloudflare.com` (see [Network access](#network-access)).
+- For the HorizontalPodAutoscaler the chart creates, the metrics API, which metrics-server provides. Without it, the
+  autoscaler cannot scale on use, and a new install runs `autoscaling.minReplicas` replicas (see
+  [Scaling and resources](#scaling-and-resources)).
+
+## 1. Create a Cloudflare API token
+
+Create an API token in the Cloudflare dashboard (**My Profile → API Tokens**, or an account-owned token under
+**Manage Account → Account API Tokens**). Grant only what the resources you plan to use need:
+
+| Resource | Permission |
+|---|---|
+| `CloudflareAccount` (always) | Account · Account Settings · Read |
+| `Zone` | Zone · Zone · Edit (Read is enough to adopt existing zones) |
+| `Zone` with `spec.plan` | Account · Billing · Edit, and changing a plan bills the account |
+| `DNSRecord` | Zone · DNS · Edit |
+| `Tunnel`, `TunnelConfiguration` | Account · Cloudflare Tunnel · Edit |
+| `WorkerScript` | Account · Workers Scripts · Edit |
+| `WorkerRoute` | Zone · Workers Routes · Edit |
+| `KVNamespace` | Account · Workers KV Storage · Edit |
+| `R2Bucket` | Account · Workers R2 Storage · Edit |
+| `D1Database` | Account · D1 · Edit |
+| `WAFCustomRule`, `RateLimitRule`, `ManagedRuleset` | Zone · Zone WAF · Edit |
+| `TransformRule` | Zone · Transform Rules · Edit |
+| `RedirectRule` | Zone · Single Redirect · Edit |
+| `CacheRule` | Zone · Cache Rules · Edit |
+| `ConfigurationRule` | Zone · Config Rules · Edit |
+| `OriginRule` | Zone · Origin Rules · Edit |
+| `ManagedTransform` | Zone · Managed Headers · Edit |
+| `IPList` | Account · Account Rule Lists · Edit |
+
+These are enough on their own: in October 2026 a token holding only them (with Zone · Zone · Read, and without Billing)
+ran kflare's full live test suite against an existing zone, and again before v0.2.0 with `ManagedTransform`'s row,
+which came later.
+Scope zone permissions to the zones kflare should manage. Note the account ID, shown on the account's overview page.
+
+## 2. Install the chart
+
+Each release publishes the chart and the controller image to GitHub Container Registry. Pick a version from the
+[releases page](https://github.com/JonathanGraniero/kflare/releases):
+
+```sh
+helm install kflare oci://ghcr.io/jonathangraniero/charts/kflare \
+  --version <version> \
+  --namespace kflare-system --create-namespace \
+  --values kflare-values.yaml
+```
+
+Keep `kflare-values.yaml` in git (see [Configuration](#configuration)). The chart's version pins the image too:
+`image.tag` defaults to the chart's `appVersion`. To pull from a registry mirror, set `image.repository` and, if it
+needs credentials, `imagePullSecrets`. From v0.2.1, the image and the chart are signed:
+[Verifying a release](#verifying-a-release) checks them, and pins the image by digest.
+
+From a checkout of this repository, for example to run unreleased changes:
+
+```sh
+helm install kflare ./helm/kflare \
+  --namespace kflare-system --create-namespace \
+  --set image.repository=<your-registry>/kflare,image.tag=<tag>
+```
+
+The chart installs:
+
+- the kflare CRDs (kept on uninstall, see [Uninstalling](#uninstalling))
+- the controller Deployment, ServiceAccount and a Service for metrics
+- a ClusterRole for the controller, plus a Role for leader election in the release namespace
+- a `kflare-metrics-reader` ClusterRole for whoever scrapes the metrics (see [Monitoring](#monitoring))
+- a HorizontalPodAutoscaler, from 1 to 10 replicas (see [Scaling and resources](#scaling-and-resources))
+- a PodDisruptionBudget, when the Deployment can run more than one replica
+- `view`/`edit` aggregation roles (see [Security model](#security-model))
+- optionally, a ServiceMonitor and a NetworkPolicy (see [Running in production](#running-in-production))
+
+Wait for the controller:
+
+```sh
+kubectl -n kflare-system rollout status deployment/kflare
+```
+
+### With Argo CD or Flux
+
+Install kflare from the platform repository your GitOps tool syncs, in its own Argo CD `Application` or Flux
+`HelmRelease`, and keep kflare resources in the applications that use them. The `CloudflareAccount` and its token
+Secret belong with the kflare installation, since only cluster administrators should create accounts (see
+[Security model](#security-model)).
+
+Argo CD, with the chart from GitHub Container Registry (Argo CD takes an OCI registry's address without `oci://`):
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kflare
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ghcr.io/jonathangraniero/charts
+    chart: kflare
+    targetRevision: <version>
+    helm:
+      valuesObject:
+        autoscaling:
+          minReplicas: 2
+  destination:
+    name: in-cluster
+    namespace: kflare-system
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+Flux, with an `OCIRepository` for the chart:
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: kflare
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: oci://ghcr.io/jonathangraniero/charts/kflare
+  ref:
+    tag: <version>
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kflare
+  namespace: flux-system
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: kflare
+  releaseName: kflare          # otherwise Flux names it kflare-system-kflare
+  targetNamespace: kflare-system
+  install:
+    createNamespace: true
+  values:
+    autoscaling:
+      minReplicas: 2
+```
+
+Things to know:
+
+- **The CRDs come with the chart**, as templates rather than in Helm's `crds/` directory, so Argo CD and Flux upgrade
+  them with the chart. They carry `helm.sh/resource-policy: keep`: Flux uninstalls with Helm, which keeps them, and
+  Argo CD treats the annotation as its `Delete=false` sync option, so deleting the Application keeps them too.
+- **Decide who owns the CRDs once, at install time.** Removing a CRD deletes every resource of its kind, and with them
+  their Cloudflare objects. Switching `crds.enabled` to `false` on a running installation stops the chart from
+  rendering the CRDs, and a GitOps tool that prunes could then delete them. This is why the Argo CD example above does
+  not turn on `prune`. To manage the CRDs yourself, set `crds.enabled=false` from the start and apply
+  `config/crd/bases` from the matching release, for example in an earlier sync wave.
+- **On a new cluster, kflare resources need the CRDs first.** In Argo CD, an application holding kflare resources
+  fails its first sync until the CRDs exist; `syncPolicy.retry` lets it try again. In Flux, put the `HelmRelease` in
+  a `Kustomization` that the ones holding kflare resources list under `dependsOn`.
+- **Upgrade by changing the version in git**, after reading the release notes (see [Upgrading](#upgrading)).
+
+## 3. Connect your Cloudflare account
+
+Store the token in a Secret. kflare reads the key `CF_API_TOKEN` unless `tokenSecretRef.key` says otherwise.
+The Secret can live in any namespace; keeping it next to the controller is simplest.
+
+```sh
+kubectl -n kflare-system create secret generic cloudflare-token \
+  --from-literal=CF_API_TOKEN=<your-api-token>
+```
+
+Point a cluster-scoped `CloudflareAccount` at it:
+
+```yaml
+apiVersion: kflare.dev/v1alpha1
+kind: CloudflareAccount
+metadata:
+  name: my-account
+spec:
+  accountID: <your-account-id>
+  tokenSecretRef:
+    name: cloudflare-token
+    namespace: kflare-system
+```
+
+```sh
+kubectl apply -f account.yaml
+kubectl get cloudflareaccounts.kflare.dev
+# NAME         ACCOUNT ID   ACCOUNT NAME     READY
+# my-account   0123abcd…    Example Account  True
+```
+
+`READY=True` means the token works and the account is reachable. kflare watches the Secret, so a
+rotated token is re-validated straight away. Rotate it by updating the Secret in place: kflare holds a
+finalizer on it (`kflare.dev/token-protection`) while an account references it, so a deleted Secret stays
+`Terminating` until its accounts are gone.
+
+Managing the Secret with [External Secrets Operator](https://external-secrets.io) or Sealed Secrets works the
+same way; only the Secret's name and namespace matter.
+
+## 4. Manage Cloudflare resources
+
+Every other kind references the account (or a resource that does). Examples are in
+[`config/samples`](../config/samples):
+
+| Kind | Scope | References | Sample |
+|---|---|---|---|
+| `Zone` | Namespaced | `accountRef` | [zone](../config/samples/cloudflare_v1alpha1_zone.yaml) |
+| `DNSRecord` | Namespaced | `zoneRef`, optional `tunnelRef` (same namespace) | [A](../config/samples/cloudflare_v1alpha1_dnsrecord_a.yaml), [MX](../config/samples/cloudflare_v1alpha1_dnsrecord_mx.yaml), [SRV](../config/samples/cloudflare_v1alpha1_dnsrecord_srv.yaml), [to a tunnel](../config/samples/cloudflare_v1alpha1_dnsrecord_tunnel.yaml) |
+| `Tunnel` | Namespaced | `accountRef` | [tunnel](../config/samples/cloudflare_v1alpha1_tunnel.yaml) |
+| `TunnelConfiguration` | Namespaced | `tunnelRef` (same namespace) | [tunnel configuration](../config/samples/cloudflare_v1alpha1_tunnelconfiguration.yaml) |
+| `WorkerScript` | Namespaced | `accountRef` | [worker](../config/samples/cloudflare_v1alpha1_workerscript.yaml) |
+| `WorkerRoute` | Namespaced | `zoneRef`, optional `workerScriptRef` (same namespace) | [route](../config/samples/cloudflare_v1alpha1_workerroute.yaml) |
+| `KVNamespace` | Namespaced | `accountRef`; WorkerScripts bind it with `kvNamespaceRef` | [KV namespace](../config/samples/cloudflare_v1alpha1_kvnamespace.yaml) |
+| `R2Bucket` | Namespaced | `accountRef`; WorkerScripts bind it with `r2BucketRef` | [R2 bucket](../config/samples/cloudflare_v1alpha1_r2bucket.yaml) |
+| `D1Database` | Namespaced | `accountRef` | [D1 database](../config/samples/cloudflare_v1alpha1_d1database.yaml) |
+| `WAFCustomRule` | Namespaced | `zoneRef` (same namespace) | [block rule](../config/samples/cloudflare_v1alpha1_wafcustomrule.yaml) |
+| `RateLimitRule` | Namespaced | `zoneRef` (same namespace) | [API rate limit](../config/samples/cloudflare_v1alpha1_ratelimitrule.yaml) |
+| `IPList` | Namespaced | `accountRef`; rule expressions use it as `$name` | [office addresses and a rule using them](../config/samples/cloudflare_v1alpha1_iplist.yaml) |
+| `ManagedRuleset` | Namespaced | `zoneRef` (same namespace) | [Free Managed Ruleset with overrides](../config/samples/cloudflare_v1alpha1_managedruleset.yaml) |
+| `TransformRule` | Namespaced | `zoneRef` (same namespace) | [URL rewrite, request and response headers](../config/samples/cloudflare_v1alpha1_transformrule.yaml) |
+| `RedirectRule` | Namespaced | `zoneRef` (same namespace) | [www to the apex domain](../config/samples/cloudflare_v1alpha1_redirectrule.yaml) |
+| `CacheRule` | Namespaced | `zoneRef` (same namespace) | [static assets for a day](../config/samples/cloudflare_v1alpha1_cacherule.yaml) |
+| `ConfigurationRule` | Namespaced | `zoneRef` (same namespace) | [stricter settings for admin pages](../config/samples/cloudflare_v1alpha1_configurationrule.yaml) |
+| `OriginRule` | Namespaced | `zoneRef` (same namespace) | [API requests to port 8443](../config/samples/cloudflare_v1alpha1_originrule.yaml) |
+| `ManagedTransform` | Namespaced | `zoneRef` (same namespace); one per Cloudflare zone | [visitor location and security headers](../config/samples/cloudflare_v1alpha1_managedtransform.yaml) |
+
+Every kind is in the `kflare` category, so one command lists everything kflare manages, the way `kubectl get all`
+lists a namespace's workloads. With `-n`, the list also holds the cluster's CloudflareAccounts:
+
+```sh
+kubectl get kflare -n my-namespace
+kubectl get kflare -A
+```
+
+Right after the CRDs are installed or upgraded, the first `kubectl get kflare` can answer `the server doesn't have a
+resource type "kflare"`; the next one works.
+
+To expose a Service on your domain through a Cloudflare Tunnel, see
+[`examples/expose-a-service`](../examples/expose-a-service). It puts the pieces together: a Zone, a Tunnel, its
+TunnelConfiguration, a DNSRecord whose `tunnelRef` points the hostname at the tunnel, and a `cloudflared` Deployment
+that connects it.
+
+Things to know before pointing kflare at existing infrastructure:
+
+- **Adoption.** kflare never takes over something you already have unless you ask it to. A resource whose
+  object already exists in Cloudflare (a zone with its name, a bucket, a database, a Worker...) reports
+  `AlreadyExists` and leaves it alone. To manage the existing object, annotate the resource
+  `kflare.dev/adoption-policy: adopt` (adopt it, never create one) or `adopt-or-create` (adopt it, or create
+  one if there is none). kflare then corrects drift toward your spec, and marks the resource
+  `kflare.dev/adopted: "true"`.
+- **Deletion policy.** Deleting a kflare resource deletes the Cloudflare object kflare created, and keeps one
+  it adopted. The annotation `kflare.dev/deletion-policy` overrides that: `retain` keeps the object, and
+  `delete` deletes it even if it was adopted.
+- **R2 objects.** kflare never deletes objects. Deleting an `R2Bucket` deletes the bucket only once it is
+  empty; until then it reports `BucketNotEmpty`. Use `retain` to keep a bucket and its objects.
+- **KV data.** Deleting a `KVNamespace` deletes the namespace and everything stored in it. Use `retain` on
+  namespaces holding data you need.
+- **D1 data.** Deleting a `D1Database` deletes the database and everything stored in it. Use `retain` on
+  databases holding data you need. A database's name, jurisdiction and location hint are set when it is created
+  and cannot change. Free accounts can have 10 D1 databases.
+- **WAF custom rules.** Each `WAFCustomRule` manages one rule in its zone, which kflare marks with a ref
+  derived from the resource's namespace and name. kflare never adopts or changes rules it did not create,
+  and keeps its own rules in `spec.priority` order (lower first) while other rules keep their place. Free
+  zones allow 5 custom rules, without regular expressions.
+- **Rate limiting rules.** Each `RateLimitRule` manages one rate limiting rule in its zone, marked and ordered
+  like WAF custom rules. Free zones allow one, which counts per IP address over 10 seconds and can only block.
+  Cloudflare also counts per data center, and requires rules to say so: list `cf.colo.id` in
+  `spec.ratelimit.characteristics`, next to `ip.src` (the API server refuses a rule without it).
+- **IP lists.** An `IPList` manages a custom list in its account, created or adopted by its name, and
+  replaces the list's items whenever they differ from `spec.items`. Rule expressions use it as
+  `$<spec.name>`. Cloudflare refuses a rule that uses a list the account does not have yet, and refuses to
+  delete a list that a rule uses: kflare writes such a rule once the list exists, and deletes the list once
+  its rules are gone (reporting `ListInUse` meanwhile). Free accounts can have one IP list, with up to
+  10,000 items.
+- **Managed rulesets.** Cloudflare deploys its Free Managed Ruleset to Free zones by default, but only while the
+  zone has no rules of its own in the managed phase. A `ManagedRuleset` deploys a ruleset explicitly, so the zone
+  keeps it; to turn it off, set the ManagedRuleset's `enabled: false` rather than deleting it. Deleting the last
+  ManagedRuleset in a zone hands it back to Cloudflare's default, which turns the Free Managed Ruleset on again even
+  if it was off before kflare. A zone deploys each ruleset once: a second deployment, or one a rule created outside
+  kflare already makes, reports `RulesetConflict`. Free zones can only deploy the Free Managed Ruleset.
+- **Transform rules.** Each `TransformRule` manages one rule in its zone, marked and ordered like WAF custom
+  rules. Its `spec.type`, which cannot change, picks what it transforms: `urlRewrite` rewrites the URL the origin
+  receives (`uri`), `requestHeaders` sets or removes headers of the request to the origin, and `responseHeaders`
+  adds, sets or removes headers of the response (`headers`). Free zones allow 10 transform rules across the three
+  types, without regular expressions (`regex_replace`).
+- **Redirect rules.** Each `RedirectRule` manages one single redirect in its zone, marked and ordered like WAF custom
+  rules. `fromValue.targetURL` is the URL to redirect to, a static `value` or an `expression` that computes it;
+  `statusCode` defaults to 301, and the query string is dropped unless `preserveQueryString` is set. Free zones allow
+  10 single redirects, without regular expressions (`regex_replace`, or `matches` in the rule's expression);
+  `wildcard_replace` works on every plan.
+- **Cache rules.** Each `CacheRule` manages one cache rule in its zone, marked and ordered like WAF custom rules:
+  whether responses are cached (`cache`), for how long at the edge and in browsers (`edgeTTL`, with TTLs by status code,
+  and `browserTTL`), the cache key (`cacheKey`) and how the `Vary` header shapes it (`vary`), and more. Free zones allow
+  10 cache rules, and of a custom cache key only leaving out the whole query string. kflare leaves out what Free zones
+  cannot use or Cloudflare refuses in this phase: an extended read timeout, shared dictionaries, the rest of the custom
+  cache key, and stripping ETags, Last-Modified or Set-Cookie headers.
+- **Configuration rules.** Each `ConfigurationRule` manages one configuration rule in its zone, marked and ordered like
+  WAF custom rules: settings changed for the requests its expression matches, such as the SSL mode, the security level,
+  Rocket Loader, Polish or Browser Integrity Check. Free zones allow 10 configuration rules; some values need a higher
+  plan (Polish other than `off`, `ssl: origin_pull`, `securityLevel: off`), and Cloudflare refuses them on Free.
+  kflare leaves out the deprecated settings (Auto Minify, Cloudflare Apps, Mirage, Signed Exchanges) and Pay Per
+  Crawl, which Free zones cannot set.
+- **Origin rules.** Each `OriginRule` manages one origin rule in its zone, marked and ordered like WAF custom rules: the
+  requests its expression matches reach the origin on another destination port (`origin.port`, 1 to 65535). The port is
+  the only override Free, Pro and Business zones may use: Cloudflare's documentation lists the Host header, SNI and DNS
+  record overrides for Enterprise plans, and Cloudflare refuses them on Free, so kflare leaves them out. Cloudflare's
+  documentation gives Free zones 10 origin rules.
+- **Managed transforms.** A `ManagedTransform` turns its zone's managed transforms on and off, by ID: those that add
+  or remove request headers (`managedRequestHeaders`) and response headers (`managedResponseHeaders`). The transforms
+  it does not list keep their state. One ManagedTransform configures a zone: another one for the same Cloudflare zone,
+  in any namespace, reports `AlreadyConfigured` until the first is gone. A zone with any transform on counts as
+  configured outside kflare, so a ManagedTransform takes it over only with an adoption policy. Deleting it turns all of
+  the zone's managed transforms off, unless it adopted them or the retain policy is set. Free zones have six
+  transforms; `GET /zones/{zone_id}/managed_headers` lists those a zone has.
+- **Immutable fields.** Names and references (`spec.name`, `accountRef`, `zoneRef`, DNS `type`, ...) cannot be
+  changed. Create a new resource instead.
+
+## Configuration
+
+Every value is documented in [`helm/kflare/values.yaml`](../helm/kflare/values.yaml), and
+[`values.schema.json`](../helm/kflare/values.schema.json) rejects unknown or invalid values at install time.
+A values file for a production cluster usually sets:
+
+```yaml
+# High availability: one replica is active, the others wait on the leader lease
+# and take over within about 15 seconds (the lease's duration) if it goes. The
+# HorizontalPodAutoscaler adds standbys while the leader is busy; minReplicas: 2
+# keeps one at all times. A PodDisruptionBudget lets a node drain evict one pod
+# at a time.
+autoscaling:
+  minReplicas: 2
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: kflare
+
+# Prometheus Operator scraping, over HTTPS with Prometheus' own ServiceAccount
+# token (see Monitoring).
+metrics:
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus   # match your Prometheus' serviceMonitorSelector
+
+logging:
+  level: info               # debug, info or error
+  format: json              # json or console
+
+# The controller caches every Secret in the cluster (token and credential Secrets
+# are looked up by reference). On a cluster with many, size its memory from them
+# (see Scaling and resources), such as:
+resources:
+  requests:
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+```
+
+`defaultDeletionPolicy: retain` keeps the Cloudflare objects of deleted resources, unless a resource says
+`kflare.dev/deletion-policy: delete` (see
+[Protecting objects that must outlive their manifests](#protecting-objects-that-must-outlive-their-manifests)).
+
+Each controller reconciles one resource at a time, so kflare bounds every call to Cloudflare: one that gets no
+answer, from a proxy that goes silent or over a connection a network change broke, cannot stall the others. A
+connection attempt gives up after 30 seconds, a TLS handshake after 10, the wait for a response to start after a
+minute, and a whole request, a Worker's upload included, after two. An HTTP/2 connection that goes 30 seconds without
+a frame from Cloudflare is pinged, and closed if the ping gets no answer within 15 seconds. `reconcileTimeout` (5
+minutes by default) bounds a whole reconcile on top of that: one that runs out of time ends with reason `APIError`
+and is retried with back-off. `0s` turns that timeout off.
+
+The pod runs under the restricted Pod Security Standard: non-root, no privilege escalation, all
+capabilities dropped and a read-only root filesystem.
+
+### Correcting changes made outside kflare
+
+kflare reverts a change made in the Cloudflare dashboard, through the API or by Terraform only when it reconciles the
+resource: when the resource, or something it depends on, changes, or at the resync every 10 hours (see
+[When drift is detected](../ARCHITECTURE.md#when-drift-is-detected)). To bound that, set a drift check interval:
+
+```yaml
+driftCheckInterval: 30m
+```
+
+Every resource is then checked against Cloudflare that long after each successful reconcile, give or take a tenth at
+random, so that resources synced together spread their checks. A check reads the resource's object and writes only
+what differs. The read is one Cloudflare API call for most kinds and two for a `Tunnel`. An `IPList` takes two, plus
+one per 500 items past the first 500.
+
+Pick the interval for the number of resources. Cloudflare allows 1,200 API calls per five minutes, 4 a second, for a
+user, counting the dashboard and all of the user's tokens, or for an account-owned token. Past that it refuses every
+call for five minutes
+([Cloudflare's API limits](https://developers.cloudflare.com/fundamentals/api/reference/limits/)). Checks of N
+resources take about N calls per interval, so an interval of at least N seconds keeps them to a quarter of the limit:
+10 minutes for 600 resources, 30 minutes for 1,800. That leaves room for kflare's own changes and for anything else
+using the token's budget. `0s`, or leaving the value empty, turns the checks off.
+
+## Security model
+
+- **The controller can read every Secret in the cluster.** It needs to read token Secrets wherever
+  `CloudflareAccount`s point, `WorkerScript` secret bindings, and to manage Tunnel credential Secrets.
+- **CloudflareAccounts are cluster-wide credentials.** Any namespaced resource can reference any
+  `CloudflareAccount` by name. Treat permission to create kflare resources as permission to use every
+  account's token, and give tenants their own cluster or Cloudflare account if they must be isolated.
+- **Aggregated roles.** With `rbac.aggregateToDefaultRoles` (default), the built-in `view` role can read all
+  kflare kinds, and `edit`/`admin` can manage the namespaced ones. `CloudflareAccount` is never added to
+  `edit`: an account can point the controller at a token Secret in any namespace, so only cluster
+  administrators should create one.
+- **Metrics** are served over HTTPS on port 8080, and only to callers the API server authenticates and authorizes: a
+  request needs a bearer token, such as a ServiceAccount's, whose user may `get` the `/metrics` non-resource URL,
+  which the `kflare-metrics-reader` ClusterRole grants. The controller checks a token with a TokenReview and a
+  SubjectAccessReview, which its ClusterRole may create, and trusts an allowed token for a minute.
+  `metrics.secure: false` serves plain HTTP to anyone who can reach the port instead.
+
+## Verifying a release
+
+From v0.2.1, the release workflow signs the controller image and the chart with
+[cosign](https://github.com/sigstore/cosign), keyless: Sigstore issues the signing certificate to kflare's release
+workflow, for the tag it ran on, and records the signature in its public transparency log, so there is no key to
+distribute. v0.1.0 and v0.2.0 are not signed.
+
+Check both before you install a version. This needs cosign 2.6.5 or newer, and no login to `ghcr.io`:
+
+```sh
+version=<version>
+identity="https://github.com/JonathanGraniero/kflare/.github/workflows/release.yml@refs/tags/v$version"
+issuer=https://token.actions.githubusercontent.com
+cosign verify "ghcr.io/jonathangraniero/kflare:$version" \
+  --certificate-identity "$identity" --certificate-oidc-issuer "$issuer"
+cosign verify "ghcr.io/jonathangraniero/charts/kflare:$version" \
+  --certificate-identity "$identity" --certificate-oidc-issuer "$issuer"
+```
+
+cosign prints the digest it verified, as `docker-manifest-digest`. The image's is that of the image index, which
+holds both platforms. To run exactly that image rather than whatever the tag points to later, set it as the chart's
+`image.digest`:
+
+```sh
+digest="$(cosign verify "ghcr.io/jonathangraniero/kflare:$version" --certificate-identity "$identity" \
+  --certificate-oidc-issuer "$issuer" | jq -r '.[0].critical.image."docker-manifest-digest"')"
+helm install kflare oci://ghcr.io/jonathangraniero/charts/kflare --version "$version" \
+  --namespace kflare-system --create-namespace --values kflare-values.yaml \
+  --set image.digest="${digest:?the image did not verify}"
+```
+
+**SBOMs and provenance.** Each platform's image comes with an SPDX SBOM, which lists the Debian packages of the
+distroless base and the Go modules in the binary, and SLSA provenance, which records how and from what it was built.
+Both are stored in the image index, so its signature covers them:
+
+```sh
+docker buildx imagetools inspect "ghcr.io/jonathangraniero/kflare:$version" \
+  --format '{{ json (index .SBOM "linux/amd64").SPDX }}'
+docker buildx imagetools inspect "ghcr.io/jonathangraniero/kflare:$version" \
+  --format '{{ json (index .Provenance "linux/amd64").SLSA }}'
+```
+
+The GitHub release has the same SBOMs as files, each with a Sigstore bundle to check it with:
+
+```sh
+cosign verify-blob "kflare-$version-linux-amd64.spdx.json" \
+  --bundle "kflare-$version-linux-amd64.spdx.json.sigstore.json" \
+  --certificate-identity "$identity" --certificate-oidc-issuer "$issuer"
+```
+
+**Admitting only signed images.** With Kyverno 1.19 or newer, this policy refuses a pod whose kflare image is not
+signed by kflare's release workflow, and pins the pod to the digest it verified:
+
+```yaml
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: kflare-signed
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  matchImageReferences:
+    - glob: 'ghcr.io/jonathangraniero/kflare*'
+  attestors:
+    - name: kflare
+      cosign:
+        keyless:
+          identities:
+            - subjectRegExp: '^https://github\.com/JonathanGraniero/kflare/\.github/workflows/release\.yml@refs/tags/v'
+              issuer: https://token.actions.githubusercontent.com
+  validations:
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.kflare])).all(e, e > 0)
+      message: the kflare image is not signed by kflare's release workflow
+```
+
+The policy checks only the images its glob matches: for an install from a registry mirror, change the glob, and make
+sure the mirror carries the signature too.
+
+cosign 3 stores a signature as a Sigstore bundle, under the tag `sha256-<digest>` next to what it signs, rather than
+in the older `.sig` format, so some tools need a setting to read it. Kyverno's `ClusterPolicy` `verifyImages` rules,
+which Kyverno 1.19 deprecates, need `type: SigstoreBundle`. Sigstore's policy-controller (0.13 or newer) needs
+`signatureFormat: bundle` on the authority. Flux (2.8 or newer) can check the chart itself: `verify` on its
+`OCIRepository`, with `provider: cosign` and a `matchOIDCIdentity` entry whose `issuer` and `subject` regular
+expressions match the issuer above and the policy's `subjectRegExp`.
+
+## Running in production
+
+### Scaling and resources
+
+kflare runs one active controller. With leader election, the replica that holds the lease reconciles every resource,
+and the others wait to take over within about 15 seconds (the lease's duration) if it goes. The chart's
+HorizontalPodAutoscaler scales the Deployment between `autoscaling.minReplicas` (1) and `autoscaling.maxReplicas`
+(10) replicas on the pods' average CPU use, against `autoscaling.targetCPUUtilizationPercentage` (80) percent of
+`resources.requests.cpu`. A standby uses almost no CPU, so the average follows the leader's use, and the replicas
+the autoscaler adds while the leader is busy are standbys: they shorten a failover, but they add no reconcile
+capacity and do not make the leader's work go faster.
+
+- **It needs the metrics API**, which metrics-server provides. Without it, `kubectl get hpa` shows the target as
+  `<unknown>`, and the Deployment keeps `autoscaling.minReplicas` replicas.
+- **To keep a standby at all times**, set `autoscaling.minReplicas: 2`. `replicaCount` is ignored while autoscaling
+  is on; with `autoscaling.enabled: false`, it sets the replicas again.
+- **Memory is left out by default.** The leader caches every Secret in the cluster and a standby caches nothing, so
+  on a cluster with many Secrets a memory target (`autoscaling.targetMemoryUtilizationPercentage`) adds standbys that
+  stay, as the leader's memory does not go down when they start.
+- **Tune it** with `autoscaling.behavior`, a HorizontalPodAutoscaler's [scaling behavior][hpa-behavior].
+- **With Argo CD or Flux**, nothing fights the autoscaler: while it is on, the chart leaves `replicas` out of the
+  Deployment.
+
+[hpa-behavior]: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior
+
+What the controller used in October 2026, measured with `hack/sizing`:
+
+| What the leader was doing | CPU, mean | CPU, peak | Memory |
+|---|---|---|---|
+| Nothing: an empty cluster | 4m | 15m | 16 MiB |
+| 1,000 Secrets of 4 KiB and 1,000 resources, each reconciled once a minute | 15m | 234m | 43 MiB |
+| 5,000 Secrets of 4 KiB and 5,000 resources, each reconciled once a minute | 49m | 298m | 124 MiB |
+| Creating those 5,000 resources at once: 500m to 750m for 40 seconds | 204m | 756m | 122 MiB |
+| Taking over those 5,000 resources from a stopped leader: 1,100m for about 15 seconds | 85m | 1,102m | 115 MiB |
+| 400 Secrets of 256 KiB (100 MiB, as Helm's release history can be) and 1,000 resources | 12m | 207m | 220 MiB |
+| Waiting as a standby, in any of these | 0 to 1m | 14m | 9 MiB |
+
+`hack/sizing` runs the controller image in Docker against an envtest API server, as a leader and a standby, and reads
+what the kubelet reports, and so what the autoscaler sees, every 2 seconds: CPU, and memory as the working set. A peak
+is the highest such sample. Its resources name a
+`CloudflareAccount` that does not exist, so that each reconcile ends with `AccountNotFound` and is retried a minute
+later, and none calls Cloudflare: Cloudflare's rate limit of 1,200 calls per five minutes keeps those to 4 a second,
+while reconciles have no such bound. A resource that is `Ready` is reconciled again only when something changes, or
+at each `driftCheckInterval`, so an installation whose resources are `Ready` uses less CPU than the table shows.
+
+The chart's defaults follow from these numbers: requests of 100m CPU and 64Mi memory, and limits of 1 CPU and 512Mi
+memory. Under those limits, the 100 MiB of Secrets with 5,000 resources took 281 MiB, and a takeover was done in
+about 12 seconds, as without them.
+
+- **CPU.** With 100m requested, an idle leader is at 4% of its request and one reconciling 5,000 resources a minute
+  at about 50%, under the autoscaler's 80%. Bursts, such as creating many resources at once or taking over from a
+  leader, last seconds to a minute, and the autoscaler waits 2 minutes above its target before it adds a replica
+  (`autoscaling.behavior`). The limit of 1 CPU is above every burst but a takeover's peak of a few seconds, which it
+  slows a little. Go sizes its threads from the limit: 2 under a limit of 1 CPU.
+- **Memory** is mostly the cache of every Secret in the cluster. The leader needs about 16 MiB, plus one and a half
+  times the size of the cluster's Secrets as `kubectl get secrets -A -o json | wc -c` counts them, plus about 15 KiB
+  for each kflare resource. Helm keeps each release's history in Secrets, often most of a cluster's. The 100 MiB of
+  Secrets above came to 134 MiB that way, and the leader used 220 MiB of the 512Mi limit, which fits about 250 MiB of
+  Secrets. For more, raise `resources.limits.memory` to at least a quarter above what the leader needs, and
+  `resources.requests.memory` to what it needs, so that the scheduler places it on a node with that much free. The
+  standbys use about 9 MiB but get the same requests.
+
+### Monitoring
+
+Every kflare resource reports a single `Ready` condition with a reason (see [Troubleshooting](#troubleshooting)), and
+the `READY` column of `kubectl get` shows it. Each change of its status or reason is also recorded as an Event on the
+resource, `Normal` when it turns True or the resource is paused and `Warning` when it turns False, so
+`kubectl describe` shows the resource's history.
+
+The controller serves controller-runtime's standard Prometheus metrics: `controller_runtime_reconcile_total`,
+`controller_runtime_reconcile_errors_total` and `controller_runtime_reconcile_timeouts_total` (reconciles that ran
+longer than `reconcileTimeout`), labelled by `controller`, `controller_runtime_reconcile_time_seconds`,
+`workqueue_depth`, and the Go runtime's. Turn on `metrics.serviceMonitor.enabled` to have the Prometheus Operator scrape
+them.
+
+The endpoint answers over HTTPS only, and to a bearer token allowed to `get` `/metrics`: a request gets 401 without a
+token the API server accepts, and 403 with one that lacks the permission. The ServiceMonitor scrapes with Prometheus'
+own ServiceAccount token. kube-prometheus-stack's Prometheus already has the permission; for another Prometheus, bind
+its ServiceAccount to the chart's `kflare-metrics-reader` ClusterRole:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-kflare-metrics-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kflare-metrics-reader
+subjects:
+  - kind: ServiceAccount
+    name: prometheus          # your Prometheus' ServiceAccount
+    namespace: monitoring
+```
+
+The ServiceMonitor reads that token with `bearerTokenFile`, which a Prometheus with
+`arbitraryFSAccessThroughSMs.deny` refuses. To scrape by hand, with a token for a ServiceAccount bound to the role:
+
+```sh
+kubectl -n kflare-system port-forward svc/kflare-metrics 8080 &
+curl -k -H "Authorization: Bearer $(kubectl -n monitoring create token prometheus)" https://localhost:8080/metrics
+```
+
+The controller's certificate is self-signed, and the ServiceMonitor skips verifying it, unless `metrics.certSecret`
+names a Secret in the release namespace that holds one: `tls.crt` and `tls.key`, and `ca.crt` for the ServiceMonitor
+to verify against. For example, from cert-manager, with an issuer whose Secrets carry `ca.crt` (a CA issuer does):
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kflare-metrics
+  namespace: kflare-system
+spec:
+  secretName: kflare-metrics-tls     # metrics.certSecret: kflare-metrics-tls
+  dnsNames:
+    - kflare-metrics.kflare-system.svc
+  issuerRef:
+    kind: ClusterIssuer
+    name: my-ca-issuer
+```
+
+The controller reloads the certificate when it is renewed. `metrics.serviceMonitor.tlsConfig` replaces the
+ServiceMonitor's TLS settings, for a CA kept elsewhere.
+
+Two things to alert on:
+
+- **Errors from Cloudflare that kflare retries** (5xx, rate limiting, network failures, timeouts) count as reconcile
+  errors.
+  A rate that stays above zero means kflare cannot reach Cloudflare or is being rate limited:
+
+  ```yaml
+  - alert: KflareReconcileErrors
+    expr: sum by (controller) (rate(controller_runtime_reconcile_errors_total{namespace="kflare-system"}[15m])) > 0
+    for: 30m
+  ```
+
+- **Resources that are not `Ready`.** Errors kflare does not retry, such as a spec Cloudflare refuses or a missing
+  token permission (`TerminalError`), and waits such as `AlreadyExists` or a parent that is not ready, do not count as
+  reconcile errors: they show only in the condition. Check the `READY` column after each change, or export the
+  conditions with kube-state-metrics' custom resource state metrics and alert on `Ready` being `False`.
+
+The log is JSON by default, and each reconcile's lines name the resource's kind, namespace and name.
+
+### Network access
+
+The controller needs outbound HTTPS to `api.cloudflare.com` and access to the Kubernetes API server, and nothing
+else; nothing connects to it but metrics scrapers and the kubelet's probes. Under a default-deny policy, turn on the
+chart's NetworkPolicy, which allows just that:
+
+```yaml
+networkPolicy:
+  enabled: true
+  metricsFrom:                 # who may scrape the metrics port; empty allows any source
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+```
+
+It allows DNS to the cluster DNS (`networkPolicy.dns.to`: kube-system's pods labelled `k8s-app: kube-dns`), the API
+server on ports 443 and 6443 at any address (`networkPolicy.apiServer.ports` and `.to`), and port 443 at any address
+for Cloudflare, since a NetworkPolicy cannot select a hostname. Most CNIs apply a policy after translating the
+`kubernetes` Service to the API server's own address and port, so `networkPolicy.apiServer.ports` must include the
+port this lists, and `networkPolicy.apiServer.to`, if you narrow it, the addresses:
+
+```sh
+kubectl get endpointslices -n default -l kubernetes.io/service-name=kubernetes
+```
+
+The policy is off by default because one that misses the API server cuts the controller off, and that may not show
+at once. The controller connects to the API server as it starts, sooner than a CNI applies a policy to a new pod, and
+keeps that connection. To check the policy, connect from a pod under a copy of it, once the copy is in force:
+
+```sh
+kubectl -n kflare-system get networkpolicy kflare -o json \
+  | jq '.metadata = {name: "kflare-probe"} | .spec.podSelector = {matchLabels: {run: "kflare-probe"}}' \
+  | kubectl -n kflare-system apply -f -
+kubectl -n kflare-system run kflare-probe --image=registry.k8s.io/e2e-test-images/agnhost:2.53 -- pause
+kubectl -n kflare-system wait --for=condition=Ready pod/kflare-probe && sleep 10
+kubectl -n kflare-system exec kflare-probe -- /agnhost connect kflare-metrics:8080 --timeout=5s  # TIMEOUT
+kubectl -n kflare-system exec kflare-probe -- /agnhost connect kubernetes.default.svc:443 --timeout=5s
+kubectl -n kflare-system exec kflare-probe -- /agnhost connect api.cloudflare.com:443 --timeout=5s
+kubectl -n kflare-system delete pod/kflare-probe networkpolicy/kflare-probe
+```
+
+Each `connect` prints nothing when it gets through, and `TIMEOUT` when the policy blocks it. The first must time
+out: the policy opens no egress to that port, so a connection there means the policy is not in force yet (wait and
+retry) or the CNI does not enforce NetworkPolicies.
+
+Behind an HTTP proxy, set the standard proxy variables with `extraEnv`. Both Cloudflare clients and the Kubernetes
+client read them, so `NO_PROXY` must cover the API server, which the controller reaches at the `kubernetes` Service's
+cluster IP:
+
+```yaml
+extraEnv:
+  - name: HTTPS_PROXY
+    value: http://proxy.internal.example:3128
+  - name: NO_PROXY
+    value: 10.96.0.0/12,.svc,.cluster.local   # your cluster's Service CIDR
+```
+
+With the NetworkPolicy on, add the proxy to `networkPolicy.extraEgress`, for example
+`[{to: [{ipBlock: {cidr: 10.0.0.10/32}}], ports: [{port: 3128}]}]`.
+
+### Protecting objects that must outlive their manifests
+
+These all delete the Cloudflare objects kflare created, as long as the controller runs: deleting a resource or its
+namespace, deleting a CRD, and a GitOps tool pruning a resource that was removed from git. For anything you cannot
+lose or recreate, annotate the resource `kflare.dev/deletion-policy: retain`, so that deleting it leaves the object in
+Cloudflare:
+
+- a `Zone` kflare created, since deleting a zone deletes every record in it
+- a `KVNamespace` or `D1Database` holding data, since deleting one deletes its data
+- an `R2Bucket` you want to keep (kflare never deletes objects in a bucket, but deletes an empty bucket)
+
+Objects kflare adopted (`kflare.dev/adoption-policy`) are already kept when their resource is deleted.
+
+To make keeping objects the rule for the whole cluster, set the chart's `defaultDeletionPolicy: retain`. Deleting
+a resource then leaves the object it created in Cloudflare too, unless the resource is annotated
+`kflare.dev/deletion-policy: delete`.
+
+### Pausing a resource
+
+To stop kflare from changing one resource's Cloudflare object for a while, for example during an incident, while
+someone fixes a record or a rule in the dashboard, or during a migration that changes an object by hand, annotate the
+resource:
+
+```sh
+kubectl annotate dnsrecord my-record -n my-namespace kflare.dev/paused=true
+```
+
+kflare then makes no Cloudflare call for it: it neither reverts changes made in Cloudflare nor applies changes to the
+spec. `kubectl describe` shows the `Ready` condition with the reason `Paused`, and an Event records the pause.
+`Ready` keeps its status, so pausing a resource sets off no alert on `Ready` being `False`, and the resources that use
+a paused one, such as a paused Zone's records, carry on. Pausing a Zone or an account does not pause them.
+
+To resume, remove the annotation:
+
+```sh
+kubectl annotate dnsrecord my-record -n my-namespace kflare.dev/paused-
+```
+
+kflare reconciles the resource straight away and applies its spec, which reverts a change made in Cloudflare while it
+was paused: to keep such a change, put it in the spec first. Deleting a paused resource changes nothing in Cloudflare
+either: the resource keeps its finalizer until the annotation is removed, so `kubectl delete` waits for that (pass
+`--wait=false` not to). See [Pausing a resource](../ARCHITECTURE.md#pausing-a-resource) for the details.
+
+### Moving to a new cluster
+
+kflare keeps its record of what it owns in the cluster: the object's ID in the resource's status, and for some kinds
+a claim label (see [Adoption and ownership](../ARCHITECTURE.md#adoption-and-ownership)). Rules are the exception: kflare
+finds a rule by a ref stored in Cloudflare and derived from the resource's kind, namespace and name. Applied in a new
+cluster, the same manifests carry no such record, so each resource whose object exists reports `AlreadyExists` and
+changes nothing, while rules find their rules and carry on. To move kflare's resources to a new cluster:
+
+1. **Stop the old installation**: uninstall it, or scale `deployment/kflare` to zero replicas and keep your GitOps tool
+   from scaling it back. Two installations must never manage the same objects; for rules, both would find the same
+   rule by its ref and keep rewriting it. To move only some resources, or to keep a way back, pause the old cluster's
+   resources that move instead (`kflare.dev/paused: "true"`, see [Pausing a resource](#pausing-a-resource)): the old
+   installation leaves them alone and goes on managing the rest. To move back, pause the new cluster's resources
+   first, then unpause the old ones.
+2. **In the new cluster, annotate the resources whose objects exist** with
+   `kflare.dev/adoption-policy: adopt-or-create` (rules need nothing) and apply them. Each adopts its object and
+   corrects it to the spec, which is what it already holds.
+3. **Adopted objects are kept when their resource is deleted.** To have kflare delete an object with its resource, as
+   it would have before the move, annotate the resource `kflare.dev/deletion-policy: delete`.
+4. **Retire the old cluster.** Deleting the cluster leaves the Cloudflare objects alone. To keep the cluster, remove
+   the finalizers from the old kflare resources by hand (see [Uninstalling](#uninstalling)), which also leaves the
+   objects in place; never delete them while the old controller still runs, unless they are paused.
+
+This procedure follows from the adoption rules above, but has not been run end to end yet: try it with a test zone
+first.
+
+## Upgrading
+
+```sh
+helm upgrade kflare oci://ghcr.io/jonathangraniero/charts/kflare --version <new-version> -n kflare-system \
+  --values kflare-values.yaml
+```
+
+With Argo CD or Flux, change `targetRevision` or the `OCIRepository`'s tag in git instead.
+
+The CRDs are part of the chart's templates, so `helm upgrade` upgrades them too. (Helm's `crds/` directory
+would only install them once.) To manage CRDs yourself, for example through GitOps with a separate sync
+wave, set `crds.enabled=false` and apply `config/crd/bases` from the matching release first.
+
+kflare's API is `v1alpha1`: read the release notes before upgrading, as fields can still change between
+releases.
+
+## Uninstalling
+
+Order matters, because kflare's finalizers need the controller running to clean up:
+
+1. **Delete your kflare resources while the controller is still running.** Each one deletes the Cloudflare
+   object it created, and keeps one it adopted or one annotated `retain`. The order does not matter: Zones
+   wait for their records, routes, rules and managed transforms, Tunnels for their configurations and the
+   records that point at them, KV namespaces and R2 buckets for the Workers bound to them, IP lists for the
+   rules that use them, accounts until nothing uses them, and token Secrets until no account uses them. An R2
+   bucket that still holds objects is not deleted: empty it, or annotate the R2Bucket `retain`.
+
+   ```sh
+   kubectl delete zones.kflare.dev,dnsrecords.kflare.dev,workerroutes.kflare.dev,wafcustomrules.kflare.dev,ratelimitrules.kflare.dev,managedrulesets.kflare.dev,transformrules.kflare.dev,redirectrules.kflare.dev,cacherules.kflare.dev,configurationrules.kflare.dev,originrules.kflare.dev,managedtransforms.kflare.dev,iplists.kflare.dev,tunnels.kflare.dev,tunnelconfigurations.kflare.dev,workerscripts.kflare.dev,kvnamespaces.kflare.dev,r2buckets.kflare.dev,d1databases.kflare.dev --all -A
+   kubectl delete cloudflareaccounts.kflare.dev --all
+   ```
+
+   With Argo CD or Flux, remove the resources from git and let the tool delete them, or delete their applications
+   with cascading deletion.
+
+2. **Uninstall the release.**
+
+   ```sh
+   helm uninstall kflare -n kflare-system
+   ```
+
+   With Argo CD or Flux, delete the kflare `Application` or `HelmRelease` instead.
+
+   The CRDs stay (`helm.sh/resource-policy: keep`). Deleting a CRD deletes every resource of that kind,
+   which, while a controller runs, deletes the matching Cloudflare objects.
+
+3. **Remove the CRDs**, once no kflare resources are left:
+
+   ```sh
+   kubectl get crd -o name | grep '\.kflare\.dev$' | xargs kubectl delete
+   ```
+
+If the controller is already gone and resources are stuck in `Terminating`, remove the finalizer by hand.
+Their Cloudflare objects are then left in place.
+
+```sh
+kubectl patch <kind>.kflare.dev <name> -n <namespace> --type=merge -p '{"metadata":{"finalizers":null}}'
+```
+
+## Troubleshooting
+
+Every kflare resource reports a single `Ready` condition. Start with:
+
+```sh
+kubectl get <kind>.kflare.dev -A                      # READY column
+kubectl describe <kind>.kflare.dev <name> -n <ns>     # condition reason and message; Events of Ready changes
+kubectl -n kflare-system logs deploy/kflare           # controller log (JSON)
+```
+
+| Reason | Meaning | What to do |
+|---|---|---|
+| `Synced`, `Validated` | In sync with Cloudflare | Nothing |
+| `Paused` | The resource is annotated `kflare.dev/paused: "true"`: kflare leaves it and its Cloudflare object alone, and a deleted one keeps its finalizer. `Ready` keeps the status it had | Remove the annotation to resume (see [Pausing a resource](#pausing-a-resource)) |
+| `TerminalError` | Cloudflare rejected the request (4xx): bad input or missing permission | Read the message, fix the spec or token; kflare retries on the next change |
+| `APIError` | Transient failure (5xx, rate limit, network, timeout) | Retried automatically with back-off. A message ending in `(reconciliation timeout)`: the reconcile ran longer than `reconcileTimeout` |
+| `AccountNotFound`, `AccountNotReady` | The referenced `CloudflareAccount` is missing or not `Ready` | Check the account's own condition |
+| `SecretNotFound`, `TokenKeyMissing`, `InvalidToken` | The token Secret is missing, lacks the key, or is empty | Fix the Secret; the account re-validates immediately |
+| `ZoneNotFound`, `ZoneNotReady`, `TunnelNotFound`, `TunnelNotReady` | The referenced parent is missing or not ready | Check the parent resource |
+| `TunnelAlreadyConfigured` | Another `TunnelConfiguration` owns this tunnel | Keep one configuration per tunnel |
+| `CredentialsSecretConflict` | A Secret with the tunnel's `credentialsSecretRef` name exists and kflare does not own it | Delete it or pick another name |
+| `AlreadyExists` | The Cloudflare object the resource names (a zone, record, tunnel, Worker, bucket, ...) exists and kflare did not create it | Annotate the resource `kflare.dev/adoption-policy: adopt` to manage it, or pick another name |
+| `NotFound` | The resource's adoption policy is `adopt` and there is nothing to adopt | Check the name, or use `adopt-or-create` to create one |
+| `InvalidAdoptionPolicy` | `kflare.dev/adoption-policy` holds a value other than `adopt` and `adopt-or-create` | Fix or remove the annotation |
+| `PatternConflict` | Another `WorkerRoute` already manages a route with this pattern in the same Cloudflare zone | Keep one WorkerRoute per pattern |
+| `TerminalError` (WorkerRoute) | A message with `Route pattern must include zone name` (10022): the pattern's hostname is not in the referenced zone | Fix `spec.pattern` or `spec.zoneRef` |
+| `WorkerScriptNotFound`, `WorkerScriptNotReady`, `AccountMismatch` | The route's WorkerScript is missing, not uploaded yet, or in a different account than the zone | Check the WorkerScript; it must use the zone's account |
+| `AccountMismatch` (DNSRecord) | The Tunnel the record's `tunnelRef` names uses another `CloudflareAccount` than the record's Zone | Use the zone's account for the Tunnel: Cloudflare routes a tunnel's traffic only for DNS records in the tunnel's account |
+| `TitleConflict` | Another `KVNamespace` already manages a namespace with this title | Keep one KVNamespace per title |
+| `KVNamespaceNotFound`, `KVNamespaceNotReady` | A WorkerScript's `kvNamespaceRef` names a missing or not-yet-ready KVNamespace | Check the KVNamespace; it must use the Worker's account |
+| `NameConflict` | Another `R2Bucket` already manages a bucket with this name in the same Cloudflare account and jurisdiction, another `IPList` a list with this name, another `D1Database` a database with this name, or the account has a list of another kind with this name | Keep one R2Bucket per bucket, one IPList per list and one D1Database per database; list names are unique across list kinds |
+| `R2BucketNotFound`, `R2BucketNotReady` | A WorkerScript's `r2BucketRef` names a missing or not-yet-ready R2Bucket | Check the R2Bucket; it must use the Worker's account |
+| `R2BucketJurisdictionUnsupported` | A WorkerScript's `r2BucketRef` names an R2Bucket outside the default jurisdiction, which kflare cannot bind yet | Bind a bucket in the default jurisdiction |
+| `ReplacingItems` | Cloudflare is replacing an `IPList`'s items in the background | Nothing: kflare checks again every 2 seconds |
+| `RulesetConflict` | Another rule in the zone already deploys the `ManagedRuleset`'s managed ruleset: another ManagedRuleset, or a rule made in the dashboard or the API | Keep one ManagedRuleset per ruleset and zone, or delete the other rule; kflare checks again every minute |
+| `ListInUse` | A deleted `IPList`'s list is still used by a rule, and Cloudflare does not delete it until no rule does | Remove the `$name` from the rules that use it (a kflare rule's goes with its resource), or annotate the IPList `kflare.dev/deletion-policy: retain` to keep the list |
+| `BucketNotEmpty` | A deleted `R2Bucket`'s bucket still holds objects; kflare does not delete them | Empty the bucket, or annotate the R2Bucket `kflare.dev/deletion-policy: retain` to keep it |
+| `InUse` | A `CloudflareAccount`, `Zone`, `Tunnel`, `KVNamespace` or `R2Bucket` being deleted is still referenced | Delete the resources listed in the message |

@@ -1,6 +1,6 @@
 import { KFLARE } from '../content.ts';
 import { Logo } from './Logo.tsx';
-import { Container, ExternalLink } from './ui.tsx';
+import { Container, ExternalLink, SiteLink } from './ui.tsx';
 
 const { links } = KFLARE;
 
@@ -23,7 +23,8 @@ export function SkipLink() {
   );
 }
 
-export function SiteHeader() {
+/** `current` marks the section the page is in. */
+export function SiteHeader({ current }: { current?: 'docs' }) {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur">
       <Container className="flex h-15 items-center justify-between gap-6">
@@ -41,12 +42,13 @@ export function SiteHeader() {
               </li>
             ))}
             <li>
-              <ExternalLink
-                href={links.deploy}
-                className="rounded-md px-3 py-2 transition-colors hover:text-ink"
+              <a
+                href="/docs/"
+                aria-current={current === 'docs' ? 'page' : undefined}
+                className="rounded-md px-3 py-2 transition-colors hover:text-ink aria-[current=page]:font-medium aria-[current=page]:text-ink"
               >
                 Docs
-              </ExternalLink>
+              </a>
             </li>
             <li>
               <ExternalLink
@@ -76,9 +78,10 @@ const FOOTER = [
   {
     heading: 'Documentation',
     items: [
-      ['Quickstart', links.quickstart],
-      ['Deploy guide', links.deploy],
-      ['Architecture', links.architecture],
+      ['Overview', '/docs/'],
+      ['Quickstart', '/#get-started'],
+      ['Deploying kflare', '/docs/deploy/'],
+      ['Architecture', '/docs/architecture/'],
       ['Changelog', links.changelog],
     ],
   },
@@ -115,9 +118,9 @@ export function SiteFooter() {
               <ul className="mt-3 space-y-2 text-sm text-dim">
                 {items.map(([label, href]) => (
                   <li key={label}>
-                    <ExternalLink href={href} className="transition-colors hover:text-ink">
+                    <SiteLink href={href} className="transition-colors hover:text-ink">
                       {label}
-                    </ExternalLink>
+                    </SiteLink>
                   </li>
                 ))}
               </ul>

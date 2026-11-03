@@ -79,3 +79,5 @@ jobs:
           grep -qi '^content-security-policy:' "${RUNNER_TEMP}/headers"
           test "$(curl -s -o /dev/null -w '%{http_code}' "${SITE_URL}/no-such-page")" = 404
           curl -fsS "${retry[@]}" -o /dev/null "https://www.${SITE_URL#https://}/"
+          curl -fsS -o "${RUNNER_TEMP}/docs" "${SITE_URL}/docs/reference/dnsrecord/"
+          grep -q 'DNSRecord reference' "${RUNNER_TEMP}/docs"

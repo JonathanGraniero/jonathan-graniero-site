@@ -11,7 +11,7 @@ apps/
   api/          NestJS API: posts, tags, profile/career, contact, auth, RSS/sitemap, health
   web/          React SPA: public site + lazy-loaded admin area with markdown editor
   edge/         Cloudflare Worker: serves web's build, proxies /api/* to the API
-  kflare-site/  kflare.dev, the kflare project site: one pre-rendered React page
+  kflare-site/  kflare.dev, the kflare project site and its docs: pre-rendered React
 packages/
   shared/       API contract types imported by both apps
 ```
@@ -132,4 +132,12 @@ The API package is traced from `dist/main.js` by [`scripts/package-api.sh`](scri
 
 ### kflare.dev
 
-[`apps/kflare-site`](apps/kflare-site) is pre-rendered to static HTML at build time and hydrated in the browser, so the page reads in full without JavaScript. A Worker with no script serves it from [`wrangler.jsonc`](apps/kflare-site/wrangler.jsonc). [`infra/kflare`](infra/kflare) creates the token that [`deploy-kflare.yml`](.github/workflows/deploy-kflare.yml) deploys it with after CI passes. Its facts (version, kinds, roadmap) live in [`src/content.ts`](apps/kflare-site/src/content.ts); update them with each kflare release. See [infra/README.md](infra/README.md#kflaredev).
+[`apps/kflare-site`](apps/kflare-site) is pre-rendered to static HTML at build time, so every page reads in full without JavaScript. The home page is then hydrated; the docs pages stay static, with a few lines of script for their copy buttons. A Worker with no script serves it all from [`wrangler.jsonc`](apps/kflare-site/wrangler.jsonc). [`infra/kflare`](infra/kflare) creates the token that [`deploy-kflare.yml`](.github/workflows/deploy-kflare.yml) deploys it with after CI passes. See [infra/README.md](infra/README.md#kflaredev).
+
+The docs at `/docs/` are built from a kflare release copied into [`apps/kflare-site/kflare`](apps/kflare-site/kflare): a reference page per kind from its CRD and samples, with an example that shows every field, and the deploy guide and ARCHITECTURE.md from their markdown. With each kflare release:
+
+```bash
+npm run sync-kflare -w @site/kflare-site -- v0.5.0   # copies the release's CRDs, samples and guides
+```
+
+Then update [`src/content.ts`](apps/kflare-site/src/content.ts) (version, kinds, roadmap) to the same release; a test fails until they match, and the build fails if the release has a kind content.ts doesn't list. `npm run build -w @site/kflare-site` and `npx wrangler dev` in `apps/kflare-site` preview it; the Vite dev server shows only the home page.

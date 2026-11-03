@@ -5,6 +5,7 @@ import { SiteFooter, SiteHeader, SkipLink } from './components/Layout.tsx';
 import { ButtonLink, C, Container, ExternalLink, Section, WithCode } from './components/ui.tsx';
 import {
   AREAS,
+  DOCS,
   FEATURES,
   HERO_MANIFEST,
   HERO_SESSION,
@@ -14,6 +15,7 @@ import {
   QUALITY,
   QUICKSTART,
   ROADMAP,
+  kindPath,
 } from './content.ts';
 
 const { links } = KFLARE;
@@ -145,7 +147,12 @@ function Resources() {
             <ul className="mt-4 space-y-3">
               {kinds.map(({ kind, does }) => (
                 <li key={kind}>
-                  <code className="font-mono text-sm font-medium text-accent">{kind}</code>
+                  <a
+                    href={kindPath(kind)}
+                    className="font-mono text-sm font-medium text-accent underline-offset-4 hover:underline"
+                  >
+                    {kind}
+                  </a>
                   <p className="mt-0.5 text-sm leading-relaxed text-dim">
                     <WithCode text={does} />
                   </p>
@@ -284,9 +291,9 @@ function GetStarted() {
         <ExternalLink href={links.quickstart} className={textLink}>
           The full quickstart
         </ExternalLink>
-        <ExternalLink href={links.deploy} className={textLink}>
+        <a href={DOCS.deploy} className={textLink}>
           Running kflare in production
-        </ExternalLink>
+        </a>
       </p>
     </Section>
   );
@@ -311,9 +318,9 @@ function Quality() {
         ))}
       </div>
       <p className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        <ExternalLink href={links.architecture} className={textLink}>
+        <a href={`${DOCS.architecture}#known-limitations`} className={textLink}>
           What was verified, and known limitations
-        </ExternalLink>
+        </a>
         <ExternalLink href={links.scorecard} className={textLink}>
           OpenSSF Scorecard
         </ExternalLink>
