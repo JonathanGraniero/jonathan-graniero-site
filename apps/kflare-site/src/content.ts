@@ -6,7 +6,7 @@
  * In the prose below, `backticks` mark inline code (see WithCode).
  */
 import release from '../kflare/release.json';
-import type { KflareRelease } from './release/digest.ts';
+import type { Changes, KflareRelease } from './release/digest.ts';
 
 export const RELEASE: KflareRelease = release;
 
@@ -223,8 +223,27 @@ export const QUALITY: { title: string; text: string }[] = [
   },
 ];
 
+/** A bullet of a roadmap card: a line of text, under its label if it has one. */
+export interface RoadmapItem {
+  label?: string;
+  text: string;
+}
+
+/**
+ * The changelog's changes, a line for each of its headings: the heading, and
+ * the first change under it. The changes after the first are written to be
+ * read after it and with their detail ("Or to the resources that carry some
+ * labels"), so they stay in the changelog. Changes under no heading are each
+ * a line.
+ */
+export function headlines(changes: Changes[]): RoadmapItem[] {
+  return changes.flatMap(({ heading, items }) =>
+    heading ? [{ label: heading, text: items[0]! }] : items.map((text) => ({ text })),
+  );
+}
+
 /** What main's CHANGELOG.md lists since the release: merged, not yet released. */
-export const NEXT_RELEASE = RELEASE.next;
+export const NEXT_RELEASE = headlines(RELEASE.next);
 
 /** ROADMAP.md's "Next": candidates a Free account can use and test. */
 export const ROADMAP = RELEASE.roadmap;
