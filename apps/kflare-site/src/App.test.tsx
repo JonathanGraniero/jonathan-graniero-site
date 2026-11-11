@@ -9,6 +9,7 @@ import {
   NEXT_RELEASE,
   QUICKSTART,
   ROADMAP,
+  headlines,
   kindPath,
 } from './content.ts';
 import { NotFound } from './NotFound.tsx';
@@ -72,7 +73,7 @@ describe('App', () => {
     render(<App />);
     const section = screen.getByRole('region', { name: /Where it's going/ });
     expect(within(section).getByText(`Merged since v${KFLARE.version}`)).toBeInTheDocument();
-    const items = [...NEXT_RELEASE.flatMap((g) => g.items), ...ROADMAP];
+    const items = [...NEXT_RELEASE.flatMap((i) => [i.label ?? '', i.text]), ...ROADMAP];
     for (const item of items) expect(section).toHaveTextContent(item.replace(/`/g, ''));
   });
 
@@ -100,21 +101,45 @@ describe('RoadmapList', () => {
   const more = { href: 'https://example.com/', label: 'Changelog' };
 
   it('says so when there is nothing to list, as right after a release', () => {
-    render(<RoadmapList {...card} groups={[]} empty="Nothing yet" more={more} />);
+    render(<RoadmapList {...card} items={[]} empty="Nothing yet" more={more} />);
     expect(screen.getByText('Nothing yet')).toBeInTheDocument();
     expect(screen.queryByRole('list')).toBeNull();
   });
 
-  it('heads the items the changelog lists under a heading', () => {
-    const groups = [
-      { heading: 'The controller', items: ['A `CloudflareAccount` can limit namespaces'] },
-      { items: ['Tagged, not yet published'] },
+  it('labels a line that has a label', () => {
+    const items = [
+      { label: 'Scoping an installation', text: 'A `CloudflareAccount` can limit namespaces' },
+      { text: 'Tagged, not yet published' },
     ];
-    render(<RoadmapList {...card} groups={groups} more={more} />);
-    expect(screen.getByRole('heading', { level: 4, name: 'The controller' })).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { level: 4 })).toHaveLength(1);
-    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    render(<RoadmapList {...card} items={items} more={more} />);
+    const [labelled, plain] = screen.getAllByRole('listitem');
+    expect(labelled).toHaveTextContent(
+      'Scoping an installationA CloudflareAccount can limit namespaces',
+    );
+    expect(plain).toHaveTextContent('Tagged, not yet published');
     expect(screen.getByText('CloudflareAccount').tagName).toBe('CODE');
+  });
+});
+
+describe('headlines', () => {
+  it('gives a heading one line, its first change, and each change under no heading its own', () => {
+    expect(
+      headlines([
+        {
+          heading: 'Scoping an installation',
+          items: ['An installation can be limited to some namespaces', 'Or to some labels'],
+        },
+        { items: ['Tagged', 'Not yet published'] },
+      ]),
+    ).toEqual([
+      {
+        label: 'Scoping an installation',
+        text: 'An installation can be limited to some namespaces',
+      },
+      { text: 'Tagged' },
+      { text: 'Not yet published' },
+    ]);
+    expect(headlines([])).toEqual([]);
   });
 });
 

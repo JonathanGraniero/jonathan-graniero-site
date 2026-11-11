@@ -16,8 +16,8 @@ import {
   QUICKSTART,
   ROADMAP,
   kindPath,
+  type RoadmapItem,
 } from './content.ts';
-import type { Changes } from './release/digest.ts';
 
 const { links } = KFLARE;
 
@@ -336,14 +336,14 @@ function Quality() {
 export function RoadmapList({
   title,
   note,
-  groups,
+  items,
   empty,
   more,
 }: {
   title: string;
   note: string;
-  /** Lists of items, each under its heading if it has one. */
-  groups: Changes[];
+  /** One bullet each: a line of text, under its label if it has one. */
+  items: RoadmapItem[];
   /** What the card says when there are no items. */
   empty?: string;
   more: { href: string; label: string };
@@ -352,29 +352,31 @@ export function RoadmapList({
     <div className="rounded-xl border border-line bg-panel p-6">
       <h3 className="font-semibold">{title}</h3>
       <p className="mt-1 text-sm text-faint">{note}</p>
-      {groups.length === 0 && <p className="mt-5 text-sm leading-relaxed text-dim">{empty}</p>}
-      {groups.map(({ heading, items }) => (
-        <div key={heading ?? ''} className="mt-5">
-          {heading && (
-            <h4 className="mb-3 text-xs font-medium text-faint">
-              <WithCode text={heading} />
-            </h4>
-          )}
-          <ul className="space-y-3 text-sm leading-relaxed">
-            {items.map((item) => (
-              <li key={item} className="flex gap-3">
-                <span
-                  className="mt-2 size-1.5 shrink-0 rounded-full bg-accent"
-                  aria-hidden="true"
-                />
+      {items.length === 0 ? (
+        <p className="mt-5 text-sm leading-relaxed text-dim">{empty}</p>
+      ) : (
+        <ul className="mt-5 space-y-3 text-sm leading-relaxed">
+          {items.map(({ label, text }) => (
+            <li key={`${label ?? ''}\n${text}`} className="flex gap-3">
+              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+              {label ? (
                 <span>
-                  <WithCode text={item} />
+                  <span className="block font-medium">
+                    <WithCode text={label} />
+                  </span>
+                  <span className="block text-dim">
+                    <WithCode text={text} />
+                  </span>
                 </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+              ) : (
+                <span>
+                  <WithCode text={text} />
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       <ExternalLink href={more.href} className={`mt-6 inline-block text-sm ${textLink}`}>
         {more.label}
       </ExternalLink>
@@ -399,14 +401,14 @@ function Roadmap() {
         <RoadmapList
           title="In the next release"
           note={`Merged since v${KFLARE.version}`}
-          groups={NEXT_RELEASE}
+          items={NEXT_RELEASE}
           empty="Nothing yet: changes show here as they merge."
           more={{ href: links.changelog, label: 'Changelog' }}
         />
         <RoadmapList
           title="Next"
           note="More of Cloudflare that a Free account can use and test"
-          groups={[{ items: ROADMAP }]}
+          items={ROADMAP.map((text) => ({ text }))}
           more={{ href: links.roadmap, label: 'The full roadmap' }}
         />
       </div>
