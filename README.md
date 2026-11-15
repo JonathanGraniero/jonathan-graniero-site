@@ -93,7 +93,7 @@ All routes are prefixed with `/api`.
 
 - **State in the URL.** Blog filters, search and pagination live in the query string: filtered views are shareable and back/forward works.
 - **Loading and caching.** Each post is prefetched on hover or focus. Pages keep showing the previous results while a new page or filter loads.
-- **Code splitting.** Every route except the home page is lazy-loaded, so markdown rendering, form validation and the whole admin area load only when needed. Syntax highlighting uses a fine-grained Shiki build (16 grammars, pure-JS regex engine, no WASM) that loads the first time a code block renders.
+- **Code splitting.** Every route except the home page is lazy-loaded, so markdown rendering, form validation and the whole admin area load only when needed. Syntax highlighting uses a fine-grained Shiki build (17 grammars, pure-JS regex engine, no WASM) that loads the first time a code block renders.
 - **Safe markdown.** Raw HTML in markdown is never rendered.
 - **Admin editor:**
   - Split-pane editor with a live preview (`useDeferredValue` keeps typing smooth).
@@ -140,6 +140,8 @@ The site follows kflare with no edits here. [`scripts/fetch-kflare.mjs`](apps/kf
 - **main's CHANGELOG.md and ROADMAP.md**: the changes since that release, under "In the next release", and the roadmap's "Next" and the kinds' areas.
 
 [`src/release/digest.ts`](apps/kflare-site/src/release/digest.ts) reads them, so kflare's docs keep a few conventions: each kind has a row in README.md's "Resource kinds" table and an area in ROADMAP.md's "Done" table (a kind missing from either is still listed, with a warning in the build), each change in CHANGELOG.md opens with a bold sentence, and each release has its `## vX.Y.Z` section. CI and deploys fetch first, and [`watch-kflare.yml`](.github/workflows/watch-kflare.yml) redeploys the site within the hour of a release or a change to either file (see [infra/README.md](infra/README.md#deploying-and-verifying)).
+
+The personal site's kflare case study ([`apps/web/src/lib/kflare.ts`](apps/web/src/lib/kflare.ts)) reads the same `release.json` for its version, date, requirements and kinds, so it needs no edits for a release either: the web build fetches it when it has none, publishes the tag it used as `/kflare-source.json`, and `watch-kflare.yml` redeploys the personal site when that tag isn't GitHub's latest.
 
 ```bash
 npm run fetch-kflare -w @site/kflare-site   # build, test and dev fetch only when kflare/ is missing

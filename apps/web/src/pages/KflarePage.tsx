@@ -65,6 +65,9 @@ export function KflarePage() {
         <ButtonAnchor href={links.quickstart} variant="secondary">
           quickstart ↗
         </ButtonAnchor>
+        <ButtonAnchor href={links.docs} variant="secondary">
+          docs ↗
+        </ButtonAnchor>
         <ButtonAnchor href={links.artifactHub} variant="secondary">
           artifact hub ↗
         </ButtonAnchor>
@@ -106,6 +109,11 @@ export function KflarePage() {
             {['Go', 'Kubernetes', 'controller-runtime', 'Cloudflare API', 'Helm'].map((t) => (
               <Badge key={t}>{t}</Badge>
             ))}
+          </dd>
+          <dt className="text-faint">Site:</dt>
+          <dd>
+            <Ext href={links.site}>kflare.dev</Ext>{' '}
+            <span className="text-dim">(docs for every kind)</span>
           </dd>
           <dt className="text-faint">License:</dt>
           <dd>{KFLARE.license}</dd>
@@ -199,6 +207,16 @@ export function KflarePage() {
               join the built-in <code className="font-code text-sm text-ink">edit</code> role, so
               teams manage their own records and rules.
             </Point>
+            <Point title="Many accounts, one rate limit each">
+              One installation can serve many Cloudflare accounts. Every API token gets its own
+              budget under Cloudflare&apos;s limit, changes go ahead of routine checks, and an
+              account that hits its limit doesn&apos;t hold up the others.
+            </Point>
+            <Point title="Renames keep their objects">
+              A kustomize prefix or a Helm name change renames resources all the time. The new
+              resource takes over the old one&apos;s Cloudflare object, so a rename never deletes a
+              DNS record or a database to create it again.
+            </Point>
           </div>
         </section>
 
@@ -225,7 +243,9 @@ export function KflarePage() {
             <Point title="Generated where it can be">
               kflare-gen generates {KFLARE.generated.length} of the {KFLARE_KIND_COUNT} kinds
               (types, controller and envtest specs) from Cloudflare&apos;s Go SDK and its OpenAPI
-              spec, so new kinds share one tested reconcile loop.
+              spec, so they all share one tested reconcile loop. Only{' '}
+              <code className="font-code text-sm text-ink">CloudflareAccount</code> is written by
+              hand.
             </Point>
           </div>
         </section>
@@ -242,15 +262,16 @@ export function KflarePage() {
             <Link to={KFLARE.post} className="text-signal underline-offset-4 hover:underline">
               weekend&apos;s notes
             </Link>
-            . Next are drift correction on a schedule (today a dashboard change is corrected on the
-            next reconcile, up to 10 hours later), Kubernetes Events, and more kinds a Free account
-            can test: zone settings, Queues, Turnstile and Workers custom domains. The{' '}
-            <Ext href={links.roadmap}>roadmap</Ext> has the list, and{' '}
+            . Since v0.1.0 it has picked up drift correction on a schedule, Kubernetes Events,
+            signed releases, installs scoped to some namespaces, and health checks for Argo CD and
+            Flux. Next are more kinds a Free account can test: zone settings, Queues, Turnstile and
+            Workers custom domains. The <Ext href={links.roadmap}>roadmap</Ext> has the list, and{' '}
             <Ext href={links.discussions}>Discussions</Ext> is open for questions and feedback.
           </p>
           <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-xs">
             {(
               [
+                ['docs', links.docs],
                 ['deploy guide', links.deploy],
                 ['architecture', links.architecture],
                 ['release notes', links.release],

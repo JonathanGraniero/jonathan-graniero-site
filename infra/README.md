@@ -174,7 +174,7 @@ terraform apply
 
 [`deploy-kflare.yml`](../.github/workflows/deploy-kflare.yml) runs after CI passes on a push to `main`, when [`watch-kflare.yml`](../.github/workflows/watch-kflare.yml) finds that kflare has changed, or from **Actions → Deploy kflare.dev → Run workflow**. It fetches kflare's latest release, CHANGELOG and ROADMAP from GitHub, builds the site, reads the token from SSM, runs `wrangler deploy`, then checks the page, its CSP header, the 404, www, and that `/source.json` is this build's.
 
-Every hour, `watch-kflare.yml` compares the release, CHANGELOG and ROADMAP that `/source.json` names with GitHub's, and when they differ, redeploys the commit CI last passed on `main`. GitHub turns off a public repository's schedules after 60 days without activity; re-enable it under **Actions → Watch kflare**.
+Every hour, `watch-kflare.yml` compares the release, CHANGELOG and ROADMAP that `/source.json` names with GitHub's, and when they differ, redeploys the commit CI last passed on `main`. It also reads the tag in the personal site's `/kflare-source.json`, and when that isn't GitHub's latest release, runs `deploy.yml` on the same commit. GitHub turns off a public repository's schedules after 60 days without activity; re-enable it under **Actions → Watch kflare**.
 
 ```bash
 curl -sI https://kflare.dev/ | grep -i content-security-policy

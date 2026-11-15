@@ -5,10 +5,14 @@
   "type": "module",
   "description": "React front end for the personal site.",
   "scripts": {
+    "predev": "node ../kflare-site/scripts/fetch-kflare.mjs --if-missing",
     "dev": "vite",
+    "prebuild": "node ../kflare-site/scripts/fetch-kflare.mjs --if-missing",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "pretypecheck": "node ../kflare-site/scripts/fetch-kflare.mjs --if-missing",
     "typecheck": "tsc --noEmit",
+    "pretest": "node ../kflare-site/scripts/fetch-kflare.mjs --if-missing",
     "test": "vitest run",
     "test:watch": "vitest"
   },

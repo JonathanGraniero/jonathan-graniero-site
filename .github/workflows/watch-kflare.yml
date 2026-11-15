@@ -4,7 +4,9 @@ name: Watch kflare
 # ROADMAP.md say comes next, as GitHub had them when the site was built
 # (apps/kflare-site/scripts/fetch-kflare.mjs). Every hour this compares the
 # live site's /source.json with GitHub, and when kflare has moved on, runs
-# deploy-kflare.yml on the commit CI last passed on main.
+# deploy-kflare.yml on the commit CI last passed on main. The personal site's
+# kflare case study shows the latest release too: when its /kflare-source.json
+# names an older tag, this runs deploy.yml on that same commit.
 #
 # GitHub turns off a public repository's schedules after 60 days without
 # activity: Actions → Watch kflare → Enable workflow turns this one back on.
@@ -19,22 +21,23 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  actions: write # to run deploy-kflare.yml
+  actions: write # to run deploy-kflare.yml and deploy.yml
   contents: read
 
 env:
   SITE_URL: https://kflare.dev
+  PERSONAL_SITE_URL: ${{ vars.SITE_URL }}
   KFLARE_REPO: JonathanGraniero/kflare
 
 jobs:
   check:
-    name: Redeploy kflare.dev if kflare changed
+    name: Redeploy the sites if kflare changed
     # Like the deploy, idle until the deploy role is set up.
     if: vars.AWS_DEPLOY_ROLE_ARN != ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Compare the live site with GitHub
+      - name: Compare the live sites with GitHub
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -47,19 +50,28 @@ jobs:
           roadmap="$(blob ROADMAP.md)"
           now="${tag} ${changelog} ${roadmap}"
 
-          status="$(curl -sS --retry 3 -o "${RUNNER_TEMP}/source.json" -w '%{http_code}' "${SITE_URL}/source.json")"
-          case "$status" in
-            200) live="$(jq -r '"\(.tag) \(.changelog) \(.roadmap)"' "${RUNNER_TEMP}/source.json")" ;;
-            # Built before the site published what it was built from.
-            404) live='unknown' ;;
-            *)
-              echo "::error::${SITE_URL}/source.json answered ${status}"
-              exit 1
-              ;;
-          esac
-          echo "Live: ${live}"
-          echo "Now:  ${now}"
-          if [ "$live" = "$now" ]; then exit 0; fi
+          # A site's file of what it was built from, as $1's JSON, or
+          # "unknown" when it was built before it published one.
+          built() {
+            local status
+            status="$(curl -sS --retry 3 -o "${RUNNER_TEMP}/built.json" -w '%{http_code}' "$2")"
+            case "$status" in
+              # The personal site answers an unknown path with its index.html.
+              200) jq -r "$1" "${RUNNER_TEMP}/built.json" 2>/dev/null || echo unknown ;;
+              404) echo unknown ;;
+              *)
+                echo "::error::$2 answered ${status}" >&2
+                return 1
+                ;;
+            esac
+          }
+          live="$(built '"\(.tag) \(.changelog) \(.roadmap)"' "${SITE_URL}/source.json")"
+          echo "kflare.dev   live: ${live}"
+          echo "             now:  ${now}"
+          personal="$(built .tag "${PERSONAL_SITE_URL}/kflare-source.json")"
+          echo "personal     live: ${personal}"
+          echo "             now:  ${tag}"
+          if [ "$live" = "$now" ] && [ "$personal" = "$tag" ]; then exit 0; fi
 
           # Redeploy what's live, the commit CI last passed for a push to
           # main, rather than a head whose CI may have failed.
@@ -69,5 +81,11 @@ jobs:
             echo "::error::no CI run has passed for a push to main"
             exit 1
           fi
-          gh workflow run deploy-kflare.yml --ref main -f commit="$commit"
-          echo "::notice::kflare changed: deploying ${commit} with ${now}"
+          if [ "$live" != "$now" ]; then
+            gh workflow run deploy-kflare.yml --ref main -f commit="$commit"
+            echo "::notice::kflare changed: deploying kflare.dev at ${commit} with ${now}"
+          fi
+          if [ "$personal" != "$tag" ]; then
+            gh workflow run deploy.yml --ref main -f commit="$commit"
+            echo "::notice::kflare released ${tag}: deploying the personal site at ${commit}"
+          fi
