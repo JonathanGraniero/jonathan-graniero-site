@@ -1,12 +1,32 @@
 /// <reference types="vitest/config" />
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+import kflare from '../kflare-site/kflare/release.json' with { type: 'json' };
+
+/**
+ * Publishes the kflare release the build read as /kflare-source.json, which
+ * .github/workflows/watch-kflare.yml compares with GitHub's latest release.
+ */
+function kflareSource(): Plugin {
+  return {
+    name: 'kflare-source',
+    apply: 'build',
+    generateBundle() {
+      const { tag, commit } = kflare.source;
+      this.emitFile({
+        type: 'asset',
+        fileName: 'kflare-source.json',
+        source: `${JSON.stringify({ tag, commit })}\n`,
+      });
+    },
+  };
+}
 
 const API_TARGET = process.env.API_URL ?? 'http://localhost:3000';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), kflareSource()],
   server: {
     port: 5173,
     // Fail loudly instead of silently moving to 5174 when a dev server is already running.

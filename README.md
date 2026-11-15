@@ -141,6 +141,8 @@ The site follows kflare with no edits here. [`scripts/fetch-kflare.mjs`](apps/kf
 
 [`src/release/digest.ts`](apps/kflare-site/src/release/digest.ts) reads them, so kflare's docs keep a few conventions: each kind has a row in README.md's "Resource kinds" table and an area in ROADMAP.md's "Done" table (a kind missing from either is still listed, with a warning in the build), each change in CHANGELOG.md opens with a bold sentence, and each release has its `## vX.Y.Z` section. CI and deploys fetch first, and [`watch-kflare.yml`](.github/workflows/watch-kflare.yml) redeploys the site within the hour of a release or a change to either file (see [infra/README.md](infra/README.md#deploying-and-verifying)).
 
+The personal site's kflare case study ([`apps/web/src/lib/kflare.ts`](apps/web/src/lib/kflare.ts)) reads the same `release.json` for its version, date, requirements and kinds, so it needs no edits for a release either: the web build fetches it when it has none, publishes the tag it used as `/kflare-source.json`, and `watch-kflare.yml` redeploys the personal site when that tag isn't GitHub's latest.
+
 ```bash
 npm run fetch-kflare -w @site/kflare-site   # build, test and dev fetch only when kflare/ is missing
 ```

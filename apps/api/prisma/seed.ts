@@ -45,7 +45,7 @@ const profile = {
   headline: 'Senior Software Engineer @ Lattice. k8s, aws, backend frameworks, and observability',
   bio: `I'm a senior software engineer at Lattice, where I've been since 2022. Most of my background is in Java, Python and Typescript.
 
-Lately I've been spending a lot of my time on Kubernetes operators. The big one is [kflare](/projects/kflare), a Kubernetes operator for Cloudflare I've been building since March. It's up to 20 resource kinds across DNS, tunnels, Workers, the WAF and the Rules products, each one tested live against a real Cloudflare account, and it has its own site with docs at [kflare.dev](https://kflare.dev). The latest release is [v0.4.3](https://github.com/JonathanGraniero/kflare/releases/tag/v0.4.3), on [Artifact Hub](https://artifacthub.io/packages/helm/kflare/kflare).
+Lately I've been spending a lot of my time on Kubernetes operators. The big one is [kflare](/projects/kflare), a Kubernetes operator for Cloudflare I've been building since March. It's up to 20 resource kinds across DNS, tunnels, Workers, the WAF and the Rules products, each one tested live against a real Cloudflare account, and it has its own site with docs at [kflare.dev](https://kflare.dev). Its [releases](https://github.com/JonathanGraniero/kflare/releases) are on [Artifact Hub](https://artifacthub.io/packages/helm/kflare/kflare).
 
 I also contribute to [AWS Controllers for Kubernetes](https://github.com/aws-controllers-k8s) (ACK). So far that's a proposed [adopt-or-create upsert in the shared runtime](https://github.com/aws-controllers-k8s/runtime/pull/184) and new Data Catalog resources for the Glue controller: [Database](https://github.com/aws-controllers-k8s/glue-controller/pull/16) (merged) and [Table](https://github.com/aws-controllers-k8s/glue-controller/pull/37) (in review).
 
@@ -117,7 +117,7 @@ const projects: Prisma.ProjectCreateManyInput[] = [
   {
     name: 'kflare',
     description:
-      'Kubernetes operator that manages Cloudflare as custom resources: zones, DNS records, tunnels, Workers, KV, R2, D1, the WAF and the Rules products. 20 kinds, each tested live against a real Cloudflare account in CI, released as a signed Helm chart (v0.4.3), with docs at kflare.dev.',
+      'Kubernetes operator that manages Cloudflare as custom resources: zones, DNS records, tunnels, Workers, KV, R2, D1, the WAF and the Rules products. 20 kinds, each tested live against a real Cloudflare account in CI, released as a signed Helm chart, with docs at kflare.dev.',
     repoUrl: 'https://github.com/JonathanGraniero/kflare',
     url: 'https://artifacthub.io/packages/helm/kflare/kflare',
     tech: ['Go', 'Kubernetes', 'controller-runtime', 'Cloudflare API', 'Helm'],

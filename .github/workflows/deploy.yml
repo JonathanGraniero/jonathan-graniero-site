@@ -1,6 +1,7 @@
 name: Deploy
 
-# Ships main to production after CI passes (or on demand): the API to AWS
+# Ships main to production after CI passes, when watch-kflare.yml sees a new
+# kflare release (the web build shows it), or on demand: the API to AWS
 # Lambda, then the web build + edge Worker to Cloudflare. Configured via
 # repository variables (see infra/README.md); until AWS_DEPLOY_ROLE_ARN is set,
 # the jobs are skipped.
@@ -10,6 +11,11 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit to deploy, if not the branch's head
+        type: string
+        required: false
 
 concurrency:
   group: deploy-production
@@ -21,7 +27,7 @@ permissions:
 
 env:
   AWS_REGION: us-east-2
-  COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+  COMMIT: ${{ github.event.workflow_run.head_sha || inputs.commit || github.sha }}
 
 jobs:
   api:
@@ -94,6 +100,13 @@ jobs:
 
       - run: npm ci
 
+      # The kflare case study shows kflare's latest release, as of now; the
+      # token lifts the API's limit for anonymous calls.
+      - name: Fetch kflare from GitHub
+        run: npm run fetch-kflare -w @site/kflare-site
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       - name: Build web
         run: npm run build -w @site/shared && npm run build -w @site/web
 
@@ -127,4 +140,6 @@ jobs:
           # Allow for a Lambda cold start plus Neon resuming from idle.
           curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "${site}/api/health" | tee /dev/stderr | grep -q '"status":"ok"'
           curl -fsS -o /dev/null "${site}/blog/hello-world"
+          # What watch-kflare.yml compares with GitHub's latest release.
+          curl -fsS "${site}/kflare-source.json" | jq -e '.tag | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$")'
           test "$(curl -s -o /dev/null -w '%{http_code}' https://www.${site#https://}/about)" = 301

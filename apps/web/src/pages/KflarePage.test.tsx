@@ -1,10 +1,27 @@
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { KFLARE } from '../lib/kflare.ts';
+import release from '../../../kflare-site/kflare/release.json';
+import { KFLARE, KFLARE_KIND_COUNT } from '../lib/kflare.ts';
 import { projects } from '../test/fixtures.ts';
 import { server } from '../test/server.ts';
 import { renderRoute } from '../test/render.tsx';
+
+describe('the kflare facts', () => {
+  it("follow kflare's latest release, as fetched from GitHub", () => {
+    expect(KFLARE.version).toBe(release.version);
+    expect(KFLARE.released).toBe(release.source.publishedAt.slice(0, 10));
+    expect(KFLARE.links.release).toBe(`${KFLARE.links.repo}/releases/tag/${release.source.tag}`);
+    expect(KFLARE.requires).toBe(`Kubernetes ${release.kubernetes}+, Helm 3.8+`);
+    expect(KFLARE.areas.map((a) => a.area)).toEqual(release.areas.map((a) => a.area));
+    expect(KFLARE_KIND_COUNT).toBe(release.areas.flatMap((a) => a.kinds).length);
+  });
+
+  it('counts every kind but CloudflareAccount as generated', () => {
+    expect(KFLARE.generated).not.toContain('CloudflareAccount');
+    expect(KFLARE.generated).toHaveLength(KFLARE_KIND_COUNT - 1);
+  });
+});
 
 describe('KflarePage', () => {
   it('lists every resource kind, grouped by area', async () => {
@@ -18,7 +35,9 @@ describe('KflarePage', () => {
     for (const kind of KFLARE.areas.flatMap((a) => a.kinds)) {
       expect(within(table).getByText(kind)).toBeInTheDocument();
     }
-    expect(screen.getByRole('heading', { name: '20 resource kinds' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: `${KFLARE_KIND_COUNT} resource kinds` }),
+    ).toBeInTheDocument();
   });
 
   it('links to the source, the chart and the release', async () => {
@@ -33,9 +52,9 @@ describe('KflarePage', () => {
     );
     expect(screen.getByRole('link', { name: 'release notes ↗' })).toHaveAttribute(
       'href',
-      'https://github.com/JonathanGraniero/kflare/releases/tag/v0.4.3',
+      `https://github.com/JonathanGraniero/kflare/releases/tag/v${KFLARE.version}`,
     );
-    expect(screen.getByText(/--version 0\.4\.3/)).toBeInTheDocument();
+    expect(screen.getByText(`--version ${KFLARE.version}`, { exact: false })).toBeInTheDocument();
   });
 });
 
