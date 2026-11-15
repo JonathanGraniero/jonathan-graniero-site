@@ -45,9 +45,11 @@ const profile = {
   headline: 'Senior Software Engineer @ Lattice. k8s, aws, backend frameworks, and observability',
   bio: `I'm a senior software engineer at Lattice, where I've been since 2022. Most of my background is in Java, Python and Typescript.
 
-Lately I've been spending a lot of my time on Kubernetes operators. The big one is [kflare](/projects/kflare), a Kubernetes operator for Cloudflare I've been building since March: 19 resource kinds across DNS, tunnels, Workers, the WAF and the Rules products, each tested live against a real Cloudflare account, and [v0.1.0](https://github.com/JonathanGraniero/kflare/releases/tag/v0.1.0) is out on [Artifact Hub](https://artifacthub.io/packages/helm/kflare/kflare).
+Lately I've been spending a lot of my time on Kubernetes operators. The big one is [kflare](/projects/kflare), a Kubernetes operator for Cloudflare I've been building since March. It's up to 20 resource kinds across DNS, tunnels, Workers, the WAF and the Rules products, each one tested live against a real Cloudflare account, and it has its own site with docs at [kflare.dev](https://kflare.dev). The latest release is [v0.4.3](https://github.com/JonathanGraniero/kflare/releases/tag/v0.4.3), on [Artifact Hub](https://artifacthub.io/packages/helm/kflare/kflare).
 
 I also contribute to [AWS Controllers for Kubernetes](https://github.com/aws-controllers-k8s) (ACK). So far that's a proposed [adopt-or-create upsert in the shared runtime](https://github.com/aws-controllers-k8s/runtime/pull/184) and new Data Catalog resources for the Glue controller: [Database](https://github.com/aws-controllers-k8s/glue-controller/pull/16) (merged) and [Table](https://github.com/aws-controllers-k8s/glue-controller/pull/37) (in review).
+
+When I'm not doing that, I'm usually tinkering with [NHL Tracker](https://github.com/JonathanGraniero/NHL-Tracker), a Discord bot for the hockey channels I'm in. It posts trades and signings once they're actually done, and these days [Claude Haiku reads the headlines](/blog/nhl-bot-reads-headlines-with-claude-haiku) to decide that.
 
 I studied computer science at Ithaca College, got my AWS Solutions Architect Associate cert back in 2020, and live in Hudson, MA. My GitHub bio says I'm hoping to change the world to Python one day. Still working on that.`,
   location: 'Hudson, MA',
@@ -115,7 +117,7 @@ const projects: Prisma.ProjectCreateManyInput[] = [
   {
     name: 'kflare',
     description:
-      'Kubernetes operator that manages Cloudflare as custom resources: zones, DNS records, tunnels, Workers, KV, R2, D1, the WAF and the Rules products. v0.1.0 is out as a Helm chart, with 19 kinds, each tested live against a real Cloudflare account in CI.',
+      'Kubernetes operator that manages Cloudflare as custom resources: zones, DNS records, tunnels, Workers, KV, R2, D1, the WAF and the Rules products. 20 kinds, each tested live against a real Cloudflare account in CI, released as a signed Helm chart (v0.4.3), with docs at kflare.dev.',
     repoUrl: 'https://github.com/JonathanGraniero/kflare',
     url: 'https://artifacthub.io/packages/helm/kflare/kflare',
     tech: ['Go', 'Kubernetes', 'controller-runtime', 'Cloudflare API', 'Helm'],
@@ -123,12 +125,12 @@ const projects: Prisma.ProjectCreateManyInput[] = [
     sortOrder: 0,
   },
   {
-    name: 'NHL Trade Tracker',
+    name: 'NHL Tracker',
     description:
-      'Discord bot, in active development, that posts confirmed NHL trades, waiver moves and signings to the channels following each team. A Cloudflare Worker on a cron with a D1 database, deployed with Terraform.',
+      "Discord bot that posts confirmed NHL trades, waiver moves and signings from r/hockey and NHL.com, with Claude Haiku reading each headline to decide whether a move is actually done. Also posts the day's games and where to watch them, standings and injuries. A Cloudflare Worker on a cron with a D1 database, deployed with Terraform.",
     url: null,
-    repoUrl: 'https://github.com/JonathanGraniero/NHL-Trade-Tracker',
-    tech: ['TypeScript', 'Cloudflare Workers', 'D1', 'Discord API', 'Terraform'],
+    repoUrl: 'https://github.com/JonathanGraniero/NHL-Tracker',
+    tech: ['TypeScript', 'Cloudflare Workers', 'D1', 'Claude API', 'Discord API', 'Terraform'],
     featured: true,
     sortOrder: 1,
   },

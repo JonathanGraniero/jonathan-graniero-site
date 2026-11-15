@@ -18,7 +18,7 @@ describe('KflarePage', () => {
     for (const kind of KFLARE.areas.flatMap((a) => a.kinds)) {
       expect(within(table).getByText(kind)).toBeInTheDocument();
     }
-    expect(screen.getByRole('heading', { name: '19 resource kinds' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '20 resource kinds' })).toBeInTheDocument();
   });
 
   it('links to the source, the chart and the release', async () => {
@@ -33,9 +33,9 @@ describe('KflarePage', () => {
     );
     expect(screen.getByRole('link', { name: 'release notes ↗' })).toHaveAttribute(
       'href',
-      'https://github.com/JonathanGraniero/kflare/releases/tag/v0.1.0',
+      'https://github.com/JonathanGraniero/kflare/releases/tag/v0.4.3',
     );
-    expect(screen.getByText(/--version 0\.1\.0/)).toBeInTheDocument();
+    expect(screen.getByText(/--version 0\.4\.3/)).toBeInTheDocument();
   });
 });
 

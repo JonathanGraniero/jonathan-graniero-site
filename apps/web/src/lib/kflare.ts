@@ -1,15 +1,15 @@
 /**
  * Static facts for the kflare case study (/projects/kflare) and the home-page
- * spotlight, taken from the kflare v0.1.0 release. Update them with each
+ * spotlight, taken from the kflare v0.4.3 release. Update them with each
  * release; keep them true.
  */
 const REPO = 'https://github.com/JonathanGraniero/kflare';
-const TAG = `${REPO}/blob/v0.1.0`;
+const TAG = `${REPO}/blob/v0.4.3`;
 
 export const KFLARE = {
   path: '/projects/kflare',
-  version: '0.1.0',
-  released: '2026-10-21',
+  version: '0.4.3',
+  released: '2026-11-11',
   started: '2026-03',
   apiVersion: 'kflare.dev/v1alpha1',
   requires: 'Kubernetes 1.34+, Helm 3.8+',
@@ -17,8 +17,10 @@ export const KFLARE = {
   license: 'MIT',
   links: {
     repo: REPO,
+    site: 'https://kflare.dev',
+    docs: 'https://kflare.dev/docs/',
     artifactHub: 'https://artifacthub.io/packages/helm/kflare/kflare',
-    release: `${REPO}/releases/tag/v0.1.0`,
+    release: `${REPO}/releases/tag/v0.4.3`,
     quickstart: `${TAG}/README.md#quickstart-expose-a-service-through-a-cloudflare-tunnel`,
     deploy: `${TAG}/docs/deploy.md`,
     architecture: `${TAG}/ARCHITECTURE.md`,
@@ -28,7 +30,7 @@ export const KFLARE = {
   },
   post: '/blog/building-kflare-kubernetes-operator-for-cloudflare',
   install: `helm install kflare oci://ghcr.io/jonathangraniero/charts/kflare \\
-  --version 0.1.0 --namespace kflare-system --create-namespace`,
+  --version 0.4.3 --namespace kflare-system --create-namespace`,
   /** From examples/expose-a-service: a hostname pointed at a Tunnel, by reference. */
   example: `apiVersion: kflare.dev/v1alpha1
 kind: DNSRecord
@@ -55,16 +57,33 @@ spec:
       area: 'Rules',
       kinds: ['TransformRule', 'RedirectRule', 'CacheRule', 'ConfigurationRule', 'OriginRule'],
     },
+    { area: 'Zone settings', kinds: ['ManagedTransform'] },
   ],
-  /** Kinds kflare-gen generates from cloudflare-go v7 and Cloudflare's OpenAPI spec. */
+  /**
+   * Kinds kflare-gen generates (types, controller glue and envtest specs) from
+   * cloudflare-go v7 and Cloudflare's OpenAPI spec: every kind but
+   * CloudflareAccount, since v0.4.0.
+   */
   generated: [
+    'Zone',
+    'DNSRecord',
+    'Tunnel',
+    'TunnelConfiguration',
+    'WorkerScript',
+    'WorkerRoute',
     'KVNamespace',
+    'R2Bucket',
     'D1Database',
+    'WAFCustomRule',
+    'RateLimitRule',
+    'ManagedRuleset',
+    'IPList',
     'TransformRule',
     'RedirectRule',
     'CacheRule',
     'ConfigurationRule',
     'OriginRule',
+    'ManagedTransform',
   ],
 } as const;
 
