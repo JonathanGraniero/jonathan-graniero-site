@@ -48,9 +48,9 @@ resource "aws_ssm_parameter" "ci_deploy_token" {
 
 data "aws_iam_policy_document" "github_deploy" {
   statement {
-    sid       = "ReadCloudflareToken"
+    sid       = "ReadDeployParameters"
     actions   = ["ssm:GetParameter"]
-    resources = [aws_ssm_parameter.ci_deploy_token.arn]
+    resources = [aws_ssm_parameter.ci_deploy_token.arn, aws_ssm_parameter.contact_to.arn]
   }
 }
 

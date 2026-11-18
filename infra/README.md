@@ -132,7 +132,8 @@ curl -sI https://www.jonathangraniero.dev/about | grep -i location   # https://j
 
 ```
 kflare.dev, www.kflare.dev ──► Cloudflare Worker "kflare-site"  (apps/kflare-site)
-                                 └─ static assets only: index.html, docs/**/index.html, 404.html, hashed JS/CSS/fonts (free, unmetered)
+                                 ├─ static assets: index.html, docs/**/index.html, 404.html, hashed JS/CSS/fonts (free, unmetered)
+                                 └─ script, /api/* only: POST /api/contact ──► send_email ──► CONTACT_TO inbox
 ```
 
 | Piece                                                                  | Defined in                                                                | Applied by             |
@@ -140,7 +141,8 @@ kflare.dev, www.kflare.dev ──► Cloudflare Worker "kflare-site"  (apps/kfla
 | Worker, static assets, custom domains (DNS + certificates)             | [`apps/kflare-site/wrangler.jsonc`](../apps/kflare-site/wrangler.jsonc)   | `wrangler deploy` (CI) |
 | Security and cache headers                                             | [`apps/kflare-site/public/_headers`](../apps/kflare-site/public/_headers) | `wrangler deploy` (CI) |
 | CI token `kflare-site-ci-deploy`, its SSM copy, the deploy role's read | [`kflare/`](kflare/)                                                      | Terraform              |
-| Email Routing (MX, SPF and DKIM records, addresses)                    | Cloudflare dashboard                                                      | By hand                |
+| `contact@` forward rule, the form's inbox (SSM `CONTACT_TO`)           | [`kflare/contact.tf`](kflare/contact.tf)                                  | Terraform              |
+| Email Routing (MX, SPF and DKIM records, other addresses)              | Cloudflare dashboard                                                      | By hand                |
 
 ### Shared with kflare's live tests
 

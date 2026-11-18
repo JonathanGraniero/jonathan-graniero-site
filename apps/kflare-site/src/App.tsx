@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { CodeBlock, ManifestWindow } from './components/Code.tsx';
+import { Contact } from './components/Contact.tsx';
 import { Icon } from './components/Icon.tsx';
 import { SiteFooter, SiteHeader, SkipLink } from './components/Layout.tsx';
 import { ButtonLink, C, Container, ExternalLink, Section, WithCode } from './components/ui.tsx';
@@ -37,6 +38,7 @@ export function App() {
         <GetStarted />
         <Quality />
         <Roadmap />
+        <Contact />
       </main>
       <SiteFooter />
     </>

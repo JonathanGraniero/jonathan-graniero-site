@@ -94,6 +94,8 @@ const FOOTER = [
       ['Security policy', links.security],
       ['Code of Conduct', links.conduct],
       ['Governance', links.governance],
+      ['Contact', '/#contact'],
+      [KFLARE.email, `mailto:${KFLARE.email}`],
     ],
   },
 ] as const;
