@@ -68,17 +68,22 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Reconciles the Worker, its static assets and custom domains to
-      # apps/kflare-site/wrangler.jsonc. The token stays inside this step.
+      # Reconciles the Worker, its static assets, custom domains and the
+      # contact form's CONTACT_TO secret to apps/kflare-site/wrangler.jsonc.
+      # The token and the inbox stay inside this step.
       - name: Deploy Worker
         working-directory: apps/kflare-site
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          CLOUDFLARE_API_TOKEN="$(aws ssm get-parameter --name /site/kflare/CLOUDFLARE_CI_TOKEN --with-decryption --query Parameter.Value --output text)"
+          ssm() { aws ssm get-parameter --name "/site/kflare/$1" --with-decryption --query Parameter.Value --output text; }
+          CLOUDFLARE_API_TOKEN="$(ssm CLOUDFLARE_CI_TOKEN)"
           echo "::add-mask::${CLOUDFLARE_API_TOKEN}"
           export CLOUDFLARE_API_TOKEN
-          npx wrangler deploy
+          contact_to="$(ssm CONTACT_TO)"
+          echo "::add-mask::${contact_to}"
+          printf 'CONTACT_TO=%s\n' "${contact_to}" > "${RUNNER_TEMP}/worker.env"
+          npx wrangler deploy --secrets-file "${RUNNER_TEMP}/worker.env"
 
       # A new custom domain's certificate can take a minute or two on the first
       # deploy. The page is saved before grep reads it: `curl | grep -q` fails
@@ -106,3 +111,8 @@ jobs:
           done
           echo "::error::${SITE_URL}/source.json is not this build's"
           exit 1
+
+      # Once this build is live, its script answers /api/*. A GET is refused
+      # without sending anything.
+      - name: Check the contact form's endpoint
+        run: test "$(curl -s -o /dev/null -w '%{http_code}' "${SITE_URL}/api/contact")" = 405

@@ -45,7 +45,7 @@ export function SiteLink({
   className?: string;
   children: ReactNode;
 }) {
-  return href.startsWith('/') ? (
+  return href.startsWith('/') || href.startsWith('mailto:') ? (
     <a href={href} className={className}>
       {children}
     </a>

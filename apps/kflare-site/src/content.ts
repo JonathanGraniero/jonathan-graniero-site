@@ -24,6 +24,7 @@ export const KFLARE = {
   license: 'MIT',
   /** The holder in LICENSE. */
   copyright: '2026 Jonathan Graniero',
+  email: 'contact@kflare.dev',
   links: {
     repo: REPO,
     release: `${REPO}/releases/tag/v${VERSION}`,

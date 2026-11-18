@@ -23,7 +23,7 @@ describe.each(pages.map((p) => [p.path, p.doc] as const))('%s', (path, doc) => {
   it('links only to pages and anchors that exist', () => {
     for (const a of doc.querySelectorAll('a[href]')) {
       const href = a.getAttribute('href')!;
-      if (/^https?:/.test(href)) continue;
+      if (/^(https?|mailto):/.test(href)) continue;
       const [target = '', hash] = href.split('#');
       const page = target === '' ? doc : byPath.get(target);
       expect(page, `${href} on ${path}`).toBeDefined();

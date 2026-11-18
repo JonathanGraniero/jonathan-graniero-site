@@ -96,6 +96,48 @@ describe('App', () => {
   });
 });
 
+describe('Contact', () => {
+  async function fillAndSend() {
+    const user = userEvent.setup();
+    render(<App />);
+    const form = within(screen.getByRole('region', { name: 'Get in touch' }));
+    await user.type(form.getByLabelText('Name'), 'Ada');
+    await user.type(form.getByLabelText('Email'), 'ada@example.com');
+    await user.type(form.getByLabelText('Message'), 'Hello');
+    await user.click(form.getByRole('button', { name: 'Send message' }));
+    return form;
+  }
+
+  it('links the contact address', () => {
+    render(<App />);
+    const form = within(screen.getByRole('region', { name: 'Get in touch' }));
+    expect(form.getByRole('link', { name: KFLARE.email })).toHaveAttribute(
+      'href',
+      `mailto:${KFLARE.email}`,
+    );
+  });
+
+  it('posts the form and says it was sent', async () => {
+    const fetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal('fetch', fetch);
+    const form = await fillAndSend();
+    expect(await form.findByText('Thanks, your message was sent.')).toBeInTheDocument();
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/contact');
+    expect((init.body as FormData).get('email')).toBe('ada@example.com');
+    vi.unstubAllGlobals();
+  });
+
+  it('shows the error the server gives', async () => {
+    vi.stubGlobal('fetch', async () =>
+      Response.json({ error: 'Too many messages.' }, { status: 429 }),
+    );
+    const form = await fillAndSend();
+    expect(await form.findByText('Too many messages.')).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+});
+
 describe('RoadmapList', () => {
   const card = { title: 'In the next release', note: 'Merged since v1.2.3' };
   const more = { href: 'https://example.com/', label: 'Changelog' };

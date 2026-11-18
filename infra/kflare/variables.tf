@@ -14,3 +14,9 @@ variable "github_deploy_role_name" {
   type        = string
   default     = "gh-deploy-site"
 }
+
+variable "contact_inbox" {
+  description = "Verified Email Routing destination that contact@ and the contact form deliver to."
+  type        = string
+  sensitive   = true
+}

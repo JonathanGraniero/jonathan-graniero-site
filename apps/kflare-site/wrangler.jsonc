@@ -17,10 +17,22 @@
   "workers_dev": false,
   "preview_urls": false,
 
-  // No script: every request is a static asset, free and unmetered. dist/ is
-  // the pre-rendered build; public/_headers sets security and cache headers.
+  // The script answers /api/* (the contact form) only; every other request is
+  // a static asset, free and unmetered. dist/ is the pre-rendered build;
+  // public/_headers sets security and cache headers.
+  "main": "worker/index.ts",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*"],
   },
+
+  // The form mails the inbox in the CONTACT_TO secret (SSM
+  // /site/kflare/CONTACT_TO, from infra/kflare) through Email Routing. A
+  // Workers rate limit, not a zone ruleset: kflare's e2e owns those.
+  "send_email": [{ "name": "CONTACT_EMAIL" }],
+  "ratelimits": [
+    { "name": "CONTACT_LIMIT", "namespace_id": "1001", "simple": { "limit": 3, "period": 60 } },
+  ],
 }
