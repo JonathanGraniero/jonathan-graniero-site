@@ -3,10 +3,11 @@
 # Workers' send_email can only deliver to a verified destination, not to
 # contact@ itself, so the Worker gets the inbox as its CONTACT_TO secret.
 # The address stays out of the repo: pass it in a gitignored *.tfvars.
+# The rule was made in the dashboard, which leaves it unnamed, and imported.
 
 resource "cloudflare_email_routing_rule" "contact" {
   zone_id  = local.zone_id
-  name     = "contact@ to the maintainer"
+  name     = ""
   enabled  = true
   matchers = [{ type = "literal", field = "to", value = "contact@${var.domain}" }]
   actions  = [{ type = "forward", value = [var.contact_inbox] }]
